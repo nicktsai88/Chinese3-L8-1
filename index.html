@@ -1,0 +1,1249 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>找尋失落的水源 - 互動學習 App</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script type="importmap">
+    {
+        "imports": {
+            "react": "https://esm.sh/react@18.2.0",
+            "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+            "lucide-react": "https://esm.sh/lucide-react@0.263.1"
+        }
+    }
+    </script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f5f5f4; /* stone-100 */
+        }
+        
+        .animate-fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        
+        .animate-bounce-subtle {
+            animation: bounceSubtle 2s infinite;
+        }
+
+        .animate-confetti {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes bounceSubtle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+
+        /* Hide scrollbar for clean UI */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d6d3d1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a29e;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+            BookOpen, PenTool, History, Heart, AlertCircle, CheckCircle, XCircle, 
+            ChevronRight, LogOut, User, ArrowLeft, Zap, Volume2, Home, LayoutGrid, 
+            Layers, ChevronDown, ChevronUp, Loader2, Sparkles, Image as ImageIcon, Download, ImageOff,
+            Gavel, Scale, FileText, List, Leaf, Droplets, Tent, Mountain
+        } from 'lucide-react';
+
+        // --- API Key Configuration ---
+        const apiKey = ""; 
+
+        // --- Helper: Convert PNG Data URL to JPG Data URL ---
+        const convertPngToJpg = (pngDataUrl) => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                    const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                    resolve(jpgDataUrl);
+                };
+                img.onerror = reject;
+                img.src = pngDataUrl;
+            });
+        };
+
+        // --- API Helper for Image Generation ---
+        const generateAIImage = async (prompt) => {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
+            // 更新 Prompt 風格以符合自然與原住民文化主題
+            const enhancedPrompt = prompt + ", masterpiece, best quality, nature photography style, aboriginal culture atmosphere, realistic texture, cinematic lighting, detailed background";
+
+            const payload = {
+                instances: [ { prompt: enhancedPrompt } ],
+                parameters: { sampleCount: 1, aspectRatio: "4:3" }
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API call failed: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                const base64Image = result.predictions?.[0]?.bytesBase64Encoded;
+                
+                if (base64Image) {
+                    const pngDataUrl = `data:image/png;base64,${base64Image}`;
+                    const jpgDataUrl = await convertPngToJpg(pngDataUrl);
+                    return jpgDataUrl;
+                } else {
+                    throw new Error("No image data in response");
+                }
+            } catch (error) {
+                console.error("Image generation error:", error);
+                alert("圖片生成失敗，請稍後再試。");
+                return null;
+            }
+        };
+
+        // --- LocalStorage Database Helper ---
+        const STORAGE_KEYS = {
+            USER: 'learning_app_user_l8', // Updated key for Lesson 8
+            HISTORY: 'learning_app_history_l8',
+            MISTAKES: 'learning_app_mistakes_l8',
+            FAVORITES: 'learning_app_favorites_l8'
+        };
+
+        const LocalDB = {
+            getUser: () => {
+                const data = localStorage.getItem(STORAGE_KEYS.USER);
+                return data ? JSON.parse(data) : null;
+            },
+            saveUser: (name) => {
+                const user = { uid: 'local-user', displayName: name, lastLogin: new Date().toISOString() };
+                localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+                return user;
+            },
+            clearUser: () => {
+                localStorage.removeItem(STORAGE_KEYS.USER);
+            },
+            getHistory: () => {
+                const data = localStorage.getItem(STORAGE_KEYS.HISTORY);
+                return data ? JSON.parse(data) : [];
+            },
+            addHistory: (record) => {
+                const list = LocalDB.getHistory();
+                const newRecord = { ...record, id: Date.now().toString(), date: new Date().toISOString() };
+                list.unshift(newRecord); 
+                localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(list));
+                return newRecord;
+            },
+            getMistakes: () => {
+                const data = localStorage.getItem(STORAGE_KEYS.MISTAKES);
+                return data ? JSON.parse(data) : [];
+            },
+            addMistake: (mistake) => {
+                const list = LocalDB.getMistakes();
+                const exists = list.some(item => item.id === mistake.id);
+                if (!exists) {
+                    const newMistake = { ...mistake, timestamp: new Date().toISOString() };
+                    list.unshift(newMistake);
+                    localStorage.setItem(STORAGE_KEYS.MISTAKES, JSON.stringify(list));
+                }
+            },
+            removeMistake: (id) => {
+                const list = LocalDB.getMistakes().filter(item => item.id.toString() !== id.toString());
+                localStorage.setItem(STORAGE_KEYS.MISTAKES, JSON.stringify(list));
+            },
+            getFavorites: () => {
+                const data = localStorage.getItem(STORAGE_KEYS.FAVORITES);
+                return data ? new Set(JSON.parse(data)) : new Set();
+            },
+            toggleFavorite: (id) => {
+                const favs = LocalDB.getFavorites();
+                const idStr = id.toString();
+                if (favs.has(idStr)) {
+                    favs.delete(idStr);
+                } else {
+                    favs.add(idStr);
+                }
+                localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(Array.from(favs)));
+                return favs;
+            },
+            removeFavorite: (id) => {
+                const favs = LocalDB.getFavorites();
+                favs.delete(id.toString());
+                localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(Array.from(favs)));
+            }
+        };
+        
+        // --- Global Data Definitions (Lesson 8 Content) ---
+        const STUDY_CONTENT = {
+            intro: {
+                title: "課文注釋與賞析",
+                items: [
+                    { term: "1. 律動", definition: "有規律、節奏的運動或變動。", prompt: "Rhythmic movement of nature, wind blowing through grass" },
+                    { term: "2. 節奏", definition: "比喻有規律的進程。", prompt: "Musical rhythm visualization, abstract waves" },
+                    { term: "3. 合眼", definition: "亦作「闔眼」。", prompt: "A person closing their eyes peacefully" },
+                    { term: "4. 佇立", definition: "久立。", prompt: "A person standing still for a long time in a forest" },
+                    { term: "5. 歸屬感", definition: "心中有所依歸的感覺。", prompt: "A warm feeling of belonging, family hugging" },
+                    { term: "7. 小「徑」", definition: "●別開蹊徑：另闢途徑，不與別人相同。", prompt: "A small path in the woods diverging from the main road" },
+                    { term: "8. 水「源」", definition: "●飲水思源：比喻不忘本。 ●探本溯源：比喻探求、追溯事物的根本。", prompt: "A clear spring water source in the mountains" },
+                    { term: "9. 水「滴」", definition: "●滴水不漏：指周密細緻，無一疏漏。 ●滴水穿石：比喻有志者事竟成，只要努力不懈就能夠成功。", prompt: "Water droplet falling on a taro leaf" },
+                    { term: "10. 「遷」走", definition: "●改過遷善：指改正過失，誠心向善。 ●時過境遷：時間流走，境況也隨之改變。", prompt: "People moving their village to a new location" },
+                    { term: "11. 挖掘", definition: "鑿取。", prompt: "Digging soil with tools" },
+                    { term: "12. 不告而別", definition: "沒有先行道別就離去。", prompt: "A person leaving quietly without saying goodbye" },
+                    { term: "13. 土表", definition: "泥土的表面。", prompt: "Surface of the soil with small plants" },
+                    { term: "14. 恩典", definition: "恩惠。", prompt: "Sunlight shining through clouds, symbolizing grace" },
+                    { term: "15. 「弓」著身", definition: "彎曲。", prompt: "A person bowing or arching their back" },
+                    { term: "16. 「瀉」滿", definition: "水向下急流。", prompt: "Water pouring down rapidly" },
+                    { term: "賞析：生活哲學", definition: "面對和處理生活事務的想法與作法的智慧。", prompt: "Wise old man thinking about life" },
+                    { term: "賞析：風貌", definition: "事物的形貌、格調。", prompt: "Landscape scenery" },
+                    { term: "賞析：永續", definition: "長久而持續。", prompt: "Sustainable nature cycle, green infinity symbol" },
+                    { term: "賞析：掠奪", definition: "搶奪、奪取。", prompt: "Hands grabbing resources greedily" },
+                    { term: "賞析：借鑑", definition: "以他人的言行作為自己的警惕。", prompt: "Looking into a mirror for reflection" }
+                ],
+                special_item: {
+                    term: "17. 獵寮",
+                    definition: "獵人狩獵休息的地方。",
+                    long_desc: "搭建的材料通常就地取用當地的植物，如樹枝或竹管做為骨架，屋頂則用茅草或芭蕉葉，地面也可以鋪芭蕉葉。傳統上，搭蓋骨架要用蘆和藤綁，不能用鐵絲，若是採用帆布或塑膠布，則必須將蘆葦放在木頭和帆布之間。\n\n獵寮最好靠近有茅草(做屋頂用)、溪水、乾柴、背風、隱蔽的地方，以免獵寮飄出的煙火容易留下氣味，會使動物產生警覺，導致獵人不容易獵到動物。通常會放一些烹調用具、睡袋、薪柴、擋風的帆布及簡單日常用品等。一座獵寮通常可容納三個人，不同季節可擴建。\n\n當獵人們進入獵場，年輕的獵人們通常負責搭建獵寮和尋找晚上燒火的乾柴。年紀大的獵人則開始就地生火煮飯。如果是一人單獨出去打獵，就必須先搭建獵寮，才開始生火煮飯。\n\n獵寮通常不會搭建在獵區中心位置，一個獵區內要避免搭建太多獵寮，以免驚動動物而打不到獵物。但是獵寮太少，又對獵人不方便。通常獵寮與獵寮之間的距離，大約以四小時步行可以到達的路程最合適。",
+                    prompt: "A traditional aboriginal hunter's hut in Taiwan forest, made of bamboo and leaves, hidden in nature"
+                }
+            },
+            shape_sound: {
+                title: "形音義補充",
+                items: [
+                    { char: "撒", content: "ㄙㄚ：(1)放開(撒手不管)。(2)施展、表現(撒野)。\nㄙㄚˇ：(1)散布(撒胡椒粉)。(2)東西散落或傾倒出來(撒了一地)。" },
+                    { char: "佇/貯", content: "佇(ㄓㄨˋ)：久立(佇立、佇候)。\n貯(ㄓㄨˇ)：積藏、儲蓄(貯藏、貯存)。" },
+                    { char: "啞", content: "一ㄚˇ：(1)喪失語言功能(聾啞)。(2)發音枯竭(喊啞了)。(3)聲音枯澀(沙啞)。(4)沒聲音(啞鈴)。\n一ㄚ：(1)形容烏鴉叫聲(啞啞吐哀音)。(2)形容小兒學語聲(啞啞學語)。" },
+                    { char: "給", content: "ㄐㄧˇ：(1)供應(自給自足)。(2)授與(給與)。\nㄍㄟˇ：(1)交付(給錢)。(2)與(送給我)。" },
+                    { char: "孤", content: "①幼年喪父或無父母(孤兒)。\n②單獨(孤雁、孤身)。\n③特出、怪異(孤僻)。\n④古代王侯自稱(孤家)。" }
+                ],
+                confusing: [
+                    { text: "獵「寮」 / 眼花「撩」亂", sounds: "ㄌㄧㄠˊ / ㄌㄧㄠˊ" },
+                    { text: "「芋」葉 / 濫「竽」充數", sounds: "ㄩˋ / ㄩˊ" },
+                    { text: "灌「溉」 / 感「慨」", sounds: "ㄍㄞˋ / ㄎㄞˇ" },
+                    { text: "「聆」聽 / 「拎」起書包", sounds: "ㄌㄧㄥˊ / ㄌㄧㄥ" },
+                    { text: "人「質」 / 「質」樸", sounds: "ㄓˋ / ㄓˊ" },
+                    { text: "「間」隔 / 挑撥離「間」 / 「間」不容髮", sounds: "ㄐㄧㄢˋ / ㄐㄧㄢˋ / ㄐㄧㄢ" },
+                    { text: "「ㄊㄥˊ」蔓 / 沸「ㄊㄥˊ」 / 「ㄊㄥˊ」雲駕霧 / 「ㄊㄥˊ」寫", sounds: "藤 / 騰 / 騰 / 謄" },
+                    { text: "「ㄈㄨˋ」湯蹈火 / 牽強「ㄈㄨˋ」會", sounds: "赴 / 附" },
+                    { text: "凹「ㄒㄧㄢˋ」 / 水餃內「ㄒㄧㄢˋ」", sounds: "陷 / 餡" },
+                    { text: "開卷有「ㄧˋ」 / 精「ㄧˋ」求精", sounds: "益 / 益" },
+                    { text: "「彌」足珍貴 / 仰之「彌」高 / 「彌」補", sounds: "更加 / 更加 / 填補" }
+                ]
+            },
+            idioms: {
+                title: "成語典故",
+                hunting: [
+                    { name: "見獵心喜", mean: "比喻舊習難忘，觸其所好，便心情愉悅而躍躍欲試。", note: "程顥看到打獵，激起舊日的愛好而心喜。", prompt: "A person seeing a hunting scene and feeling excited" },
+                    { name: "一箭雙鵰", mean: "比喻一次舉動便可達到雙倍效果，兼得兩種好處。", prompt: "Shooting one arrow and hitting two eagles" },
+                    { name: "放鷹逐犬", mean: "打獵。", prompt: "Releasing hawks and dogs for hunting" },
+                    { name: "飛蒼走黃", mean: "指放出蒼鷹和獵犬打獵。黃，黃犬。", prompt: "Hunting with eagles and yellow dogs" },
+                    { name: "飛鷹走狗", mean: "打獵。亦作「飛鷹走馬」、「飛鷹走犬」。", prompt: "Falconry and hunting dogs" },
+                    { name: "見兔放鷹", mean: "比喻看準時機，及時採取行動，以獲取利益。", prompt: "Releasing a hawk upon seeing a rabbit" },
+                    { name: "兔起鶻落", mean: "比喻動作快速敏捷。後常比喻書寫作畫時下筆疾速。(鶻：行動敏捷的猛禽)", prompt: "A falcon diving down fast as a rabbit jumps" },
+                    { name: "焚林而畋", mean: "焚毀山林以獵取野獸。比喻索取一空，不留餘地。亦作「焚林而田」。(畋：狩獵)", prompt: "Burning a forest to hunt animals" },
+                    { name: "張羅彀弓", mean: "指準備好射獵的工作。(彀：拉滿弓)", prompt: "Setting up nets and drawing bows fully" },
+                    { name: "鳥盡弓藏", mean: "比喻天下平定之後便遺棄功臣。", prompt: "Hiding the bow after all birds are shot" },
+                    { name: "兔死狗烹", mean: "比喻事成之後，出過力的人即遭到殺戮或見棄的命運。", prompt: "Cooking the hunting dog after rabbits are gone" }
+                ],
+                water: [
+                    { name: "鏡花水月", mean: "比喻空幻不實在。", prompt: "Reflection of flowers in water and moon in mirror" },
+                    { name: "水到渠成", mean: "比喻事情條件完備則自然成功，不須強求。", prompt: "Water flowing to form a canal naturally" },
+                    { name: "車水馬龍", mean: "形容車馬絡繹不絕，繁華熱鬧的景象。", prompt: "Crowded street with carriages and horses like a dragon" },
+                    { name: "望穿秋水", mean: "形容盼望的殷切。", prompt: "Person looking at the horizon with longing eyes" },
+                    { name: "杯水車薪", mean: "比喻無濟於事。", prompt: "Using a cup of water to save a cartload of burning wood" },
+                    { name: "水滴石穿", mean: "比喻持之以恆，事必有成。", prompt: "Water dripping constantly wearing through a stone" }
+                ],
+                stories: [
+                    { name: "竭澤而漁", mean: "指排盡澤水捕魚。比喻取盡所有，不留餘地。", source: "語出《呂氏春秋》", story: "春秋時晉文公問咎犯如何應戰，咎犯建議詐術。雍季雖認為詐術（竭澤而漁、焚林而田）非長久之計，但文公採納咎犯建議勝戰。論功行賞時，雍季居首，因其顧及百世利益。", prompt: "Draining a pond to catch all fish" },
+                    { name: "殺雞取卵", mean: "比喻為貪圖眼前的好處而斷絕了長遠的利益。", source: "典出《伊索寓言》", story: "貪心的農夫殺了每天下金蛋的母雞，以為肚子裡有金塊，結果什麼都沒有，連金蛋也沒了。", prompt: "Farmer killing a hen that lays golden eggs" }
+                ]
+            },
+            knowledge: {
+                title: "知識拓展",
+                concepts: [
+                    { title: "子釣而不綱，弋不射宿", source: "論語", content: "孔子只釣魚而不用網捕魚；不射已經宿巢的鳥。比喻對自然萬物取之有時，用之有節。", prompt: "Confucius fishing with a rod, not a net" },
+                    { title: "數罟不入洿池...", source: "孟子", content: "細密的魚網不放入大塘捕撈，魚鱉吃不完；按時令砍伐，木材用不盡。比喻對自然萬物取之有時，用之有節。", prompt: "Ancient fishing with proper nets" }
+                ],
+                examples: [
+                    { title: "古代禁令", content: "《呂氏春秋》記載，制定春夏秋冬禁令。生物繁育期不准砍樹、燒草、捕獸、捕魚。為野生動物保護奠定基礎。", prompt: "Ancient Chinese scroll listing nature conservation laws" },
+                    { title: "達悟族飛魚祭", content: "飛魚汛期(2-6月)舉行祭典，6-7月舉行收藏祭，結束後不再捕捉，給予飛魚繁殖生長的時機。體現夠用就好的傳統。", prompt: "Tao people celebrating Flying Fish Festival with boats" }
+                ],
+                quotes: [
+                    { text: "一切順乎自然的東西都是美好的。", author: "古羅馬 西塞羅" },
+                    { text: "大自然的每一個領域都是美妙絕倫的。", author: "古希臘 亞里士多德" },
+                    { text: "大自然不會欺騙我們，欺騙我們的往往是我們自己。", author: "法國 盧梭" },
+                    { text: "研究自然是與名師交往，切不可輕視自然。", author: "美國 阿加西斯" },
+                    { text: "當人類歡呼對自然的勝利之時，也就是自然對人類懲罰的開始。", author: "德國 黑格爾" }
+                ]
+            },
+            structure: {
+                title: "課文結構表",
+                parts: [
+                    { section: "前言 (1-2段)", title: "感受大自然", content: "靜夜裡感受自然的美好，體悟人與自然溝通的奧祕。", prompt: "Quiet night in nature, feeling the breeze" },
+                    { section: "起因 (3段)", title: "水流細小的水源地", content: "作者到達不起眼的水源地，引發對相關問題的思考。", prompt: "Small water source in the forest" },
+                    { section: "經過 (4-5段)", title: "水源地的故事", content: "父親敘述老獵人透過夢境找到水源的故事，傳達「夠用就好」的態度。", prompt: "Father telling a story about an old hunter dreaming of water" },
+                    { section: "影響 (6-8段)", title: "從故事獲得體悟", content: "作者體會老獵人對水的珍惜，和對自然土地情感的真實。藉父子的對話道出親近土地才能感受水的香甜。", prompt: "Father and son talking in the forest" },
+                    { section: "結語 (9段)", title: "感受與感恩", content: "作者感受到族人的敬天惜物，知足感恩。", prompt: "Aboriginal people praying and thanking nature" }
+                ]
+            }
+        };
+
+        const generateQuestions = () => {
+            const q = [];
+            let id = 1;
+            
+            // 1. 注釋
+            q.push({ id: id++, category: "注釋", question: "「別開蹊徑」的意思是？", options: ["另闢途徑，不與別人相同", "走路很快", "開闢新路", "迷路了"], answer: "另闢途徑，不與別人相同" });
+            q.push({ id: id++, category: "注釋", question: "「飲水思源」比喻什麼？", options: ["不忘本", "口渴要喝水", "尋找水源", "節約用水"], answer: "不忘本" });
+            q.push({ id: id++, category: "注釋", question: "「滴水穿石」比喻？", options: ["有志者事竟成", "水力很大", "石頭很硬", "下雨天"], answer: "有志者事竟成" });
+            q.push({ id: id++, category: "注釋", question: "「不告而別」的意思？", options: ["沒有先行道別就離去", "忘記說話", "生氣離開", "大聲告別"], answer: "沒有先行道別就離去" });
+            
+            // 2. 獵寮知識
+            q.push({ id: id++, category: "獵寮知識", question: "獵寮的骨架通常使用什麼材料？", options: ["鐵絲", "蘆和藤", "塑膠繩", "鋼筋"], answer: "蘆和藤" });
+            q.push({ id: id++, category: "獵寮知識", question: "獵寮最好靠近什麼地方？", options: ["獵區中心", "通風口", "隱蔽、背風處", "懸崖邊"], answer: "隱蔽、背風處" });
+            q.push({ id: id++, category: "獵寮知識", question: "獵寮之間最合適的距離約為？", options: ["1小時", "4小時步行路程", "1天", "10分鐘"], answer: "4小時步行路程" });
+
+            // 3. 形音義
+            q.push({ id: id++, category: "形音義", question: "「撒」野的讀音？", options: ["ㄙㄚ", "ㄙㄚˇ", "ㄕㄚ", "ㄕㄚˇ"], answer: "ㄙㄚ" });
+            q.push({ id: id++, category: "形音義", question: "「撒」了一地的讀音？", options: ["ㄙㄚ", "ㄙㄚˇ", "ㄕㄚ", "ㄕㄚˇ"], answer: "ㄙㄚˇ" });
+            q.push({ id: id++, category: "形音義", question: "「佇」立的讀音與意思？", options: ["ㄓㄨˋ，久立", "ㄓㄨˇ，積藏", "ㄔㄨˋ，停止", "ㄓㄨˋ，等待"], answer: "ㄓㄨˋ，久立" });
+            q.push({ id: id++, category: "形音義", question: "「貯」藏的讀音？", options: ["ㄓㄨˋ", "ㄓㄨˇ", "ㄔㄨˋ", "ㄑㄧˇ"], answer: "ㄓㄨˇ" });
+            q.push({ id: id++, category: "形音義", question: "啞啞學語的「啞」讀音？", options: ["ㄧㄚˇ", "ㄧㄚ", "ㄜˋ", "ㄨ"], answer: "ㄧㄚ" });
+            
+            // 4. 成語
+            q.push({ id: id++, category: "成語", question: "「見獵心喜」比喻？", options: ["舊習難忘，觸其所好而心情愉悅", "看到獵物很高興", "喜歡打獵", "心地善良"], answer: "舊習難忘，觸其所好而心情愉悅" });
+            q.push({ id: id++, category: "成語", question: "「兔起鶻落」比喻？", options: ["動作快速敏捷", "兔子跳起來", "鳥飛下來", "打獵失敗"], answer: "動作快速敏捷" });
+            q.push({ id: id++, category: "成語", question: "「鳥盡弓藏」比喻？", options: ["天下平定後遺棄功臣", "愛護工具", "不再打獵", "鳥飛走了"], answer: "天下平定後遺棄功臣" });
+            q.push({ id: id++, category: "成語", question: "「竭澤而漁」比喻？", options: ["取盡所有，不留餘地", "努力捕魚", "水源枯竭", "技術高超"], answer: "取盡所有，不留餘地" });
+            q.push({ id: id++, category: "成語", question: "「殺雞取卵」比喻？", options: ["貪圖眼前好處斷絕長遠利益", "殺雞儆猴", "收穫豐富", "愚笨的人"], answer: "貪圖眼前好處斷絕長遠利益" });
+
+            // 5. 知識拓展
+            q.push({ id: id++, category: "知識拓展", question: "孔子「釣而不綱，弋不射宿」體現什麼精神？", options: ["取之有時，用之有節", "釣魚技術", "射箭技巧", "愛護動物"], answer: "取之有時，用之有節" });
+            q.push({ id: id++, category: "知識拓展", question: "達悟族飛魚祭體現了什麼傳統？", options: ["夠用就好，取用有節", "大量捕撈", "崇拜飛魚", "觀光活動"], answer: "夠用就好，取用有節" });
+            q.push({ id: id++, category: "知識拓展", question: "「大自然不會欺騙我們，欺騙我們的往往是我們自己」是誰的名言？", options: ["盧梭", "黑格爾", "西塞羅", "亞里士多德"], answer: "盧梭" });
+
+            return q;
+        };
+
+        const ALL_QUESTIONS = generateQuestions(); 
+
+        const playSound = (type) => {
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (!AudioContext) return;
+                const ctx = new AudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                const now = ctx.currentTime;
+                if (type === 'correct') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, now);
+                    osc.frequency.setValueAtTime(659.25, now + 0.1);
+                    osc.frequency.setValueAtTime(783.99, now + 0.2);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+                    osc.start(now);
+                    osc.stop(now + 0.5);
+                } else {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.linearRampToValueAtTime(100, now + 0.3);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                }
+            } catch (e) { console.error(e); }
+        };
+
+        const Confetti = () => {
+            const colors = ['#F97316', '#EF4444', '#F59E0B', '#EC4899', '#FB923C', '#FCD34D'];
+            const pieces = Array.from({ length: 50 }).map((_, i) => ({
+                id: i, left: Math.random() * 100 + '%', animationDelay: Math.random() * 0.5 + 's', backgroundColor: colors[Math.floor(Math.random() * colors.length)], rotation: Math.random() * 360 + 'deg'
+            }));
+            return (
+                <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+                    {pieces.map((p) => (
+                        <div key={p.id} className="absolute w-3 h-3 md:w-4 md:h-4 opacity-0 animate-confetti" style={{ left: p.left, top: '-20px', backgroundColor: p.backgroundColor, transform: `rotate(${p.rotation})`, animation: `fall 2.5s ease-out forwards ${p.animationDelay}` }} />
+                    ))}
+                    <style>{`@keyframes fall { 0% { transform: translateY(0) rotate(0deg); opacity: 1; } 100% { transform: translateY(100vh) rotate(720deg); opacity: 0; } }`}</style>
+                </div>
+            );
+        };
+
+        const LoadingScreen = () => (
+            <div className="flex flex-col items-center justify-center h-screen bg-stone-50">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mb-4"></div>
+                <p className="text-stone-600">載入中...</p>
+            </div>
+        );
+
+        // --- Auth & Dashboard Components ---
+        const AuthScreen = ({ onLogin }) => {
+            const [name, setName] = useState('');
+            const [savedName, setSavedName] = useState('');
+
+            useEffect(() => {
+                const user = LocalDB.getUser();
+                if (user && user.displayName) {
+                    setSavedName(user.displayName);
+                }
+            }, []);
+
+            const handleLogin = (e, forcedName) => {
+                if (e) e.preventDefault();
+                const loginName = forcedName || name;
+                if (!loginName.trim()) return;
+                
+                const user = LocalDB.saveUser(loginName);
+                onLogin(user);
+            };
+
+            const handleQuickLogin = () => {
+                const randomNum = Math.floor(Math.random() * 1000);
+                const user = LocalDB.saveUser(`訪客 ${randomNum}`);
+                onLogin(user);
+            };
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-cyan-100 to-blue-100 flex items-center justify-center p-4">
+                    <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border-t-4 border-cyan-500">
+                        <div className="text-center mb-8">
+                            <Droplets className="w-16 h-16 text-cyan-600 mx-auto mb-4" />
+                            <h1 className="text-3xl font-bold text-stone-800">找尋失落的水源</h1>
+                            <p className="text-stone-500 mt-2">互動式學習 App</p>
+                        </div>
+                        
+                        {savedName && (
+                            <div className="mb-6">
+                                <button onClick={() => handleLogin(null, savedName)} className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white py-4 rounded-xl font-bold hover:from-cyan-600 hover:to-blue-600 transition shadow-lg shadow-cyan-200 flex items-center justify-center group">
+                                    <Sparkles className="w-5 h-5 mr-2 animate-pulse text-yellow-200" />
+                                    <span>以 {savedName} 繼續學習</span>
+                                    <ChevronRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition" />
+                                </button>
+                                <div className="text-center mt-3">
+                                    <button onClick={() => { setSavedName(''); LocalDB.clearUser(); }} className="text-xs text-stone-400 hover:text-stone-600 underline">這不是我，切換帳號</button>
+                                </div>
+                            </div>
+                        )}
+
+                        <form onSubmit={handleLogin} className={`space-y-4 ${savedName ? 'hidden' : ''}`}>
+                            <div>
+                                <label className="block text-sm font-medium text-stone-700 mb-1">請輸入您的姓名</label>
+                                <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full px-4 py-2 border border-stone-300 rounded-lg focus:ring-2 focus:ring-cyan-500 focus:outline-none" placeholder="Ex: 王小明" />
+                            </div>
+                            <button type="submit" disabled={!name.trim()} className="w-full bg-cyan-600 text-white py-3 rounded-lg font-semibold hover:bg-cyan-700 transition disabled:opacity-50">
+                                開始學習
+                            </button>
+                        </form>
+                        
+                        <div className={`mt-4 flex items-center justify-between ${savedName ? 'hidden' : ''}`}>
+                            <div className="h-px bg-stone-200 flex-1"></div><span className="text-sm text-stone-400 px-2">或</span><div className="h-px bg-stone-200 flex-1"></div>
+                        </div>
+                        <button onClick={handleQuickLogin} className={`mt-4 w-full bg-stone-50 border-2 border-stone-200 text-stone-600 py-3 rounded-lg font-semibold hover:bg-stone-100 transition flex items-center justify-center ${savedName ? 'hidden' : ''}`}>
+                            <Zap className="w-5 h-5 mr-2 text-yellow-500" /> 快速體驗 (免輸入姓名)
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        const Dashboard = ({ user, onLogout, onNavigate }) => {
+            return (
+                <div className="p-6 max-w-4xl mx-auto space-y-6">
+                    <header className="flex justify-between items-center mb-8">
+                        <div>
+                            <h1 className="text-2xl font-bold text-stone-800">歡迎回來，{user.displayName || "同學"}</h1>
+                            <p className="text-stone-500">準備好探索大自然的奧祕了嗎？</p>
+                        </div>
+                        <button onClick={onLogout} className="text-stone-500 hover:text-red-500 flex items-center">
+                            <LogOut className="w-6 h-6 mr-1" /> <span className="text-sm">登出</span>
+                        </button>
+                    </header>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <button onClick={() => onNavigate('learn')} className="bg-white p-6 rounded-2xl shadow-md hover:shadow-lg transition group border-l-4 border-cyan-500 text-left">
+                            <div className="flex items-center space-x-4 mb-2">
+                                <div className="bg-cyan-100 p-3 rounded-full group-hover:bg-cyan-200 transition"><BookOpen className="w-8 h-8 text-cyan-600" /></div>
+                                <h2 className="text-xl font-bold text-stone-800">進入學習介面</h2>
+                            </div>
+                            <p className="text-stone-500 pl-16">瀏覽注釋、形音義、成語典故與知識拓展。</p>
+                        </button>
+
+                        <button onClick={() => onNavigate('quiz_setup')} className="bg-white p-6 rounded-2xl shadow-md hover:shadow-lg transition group border-l-4 border-emerald-500 text-left">
+                            <div className="flex items-center space-x-4 mb-2">
+                                <div className="bg-emerald-100 p-3 rounded-full group-hover:bg-emerald-200 transition"><PenTool className="w-8 h-8 text-emerald-600" /></div>
+                                <h2 className="text-xl font-bold text-stone-800">開始測驗</h2>
+                            </div>
+                            <p className="text-stone-500 pl-16">挑戰全方位題庫，鞏固學習成果。</p>
+                        </button>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-4 mt-8">
+                        <button onClick={() => onNavigate('history')} className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center hover:bg-stone-50 transition">
+                            <History className="w-6 h-6 text-orange-500 mb-2" /><span className="text-sm font-medium text-stone-700">測驗紀錄</span>
+                        </button>
+                        <button onClick={() => onNavigate('mistakes')} className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center hover:bg-stone-50 transition">
+                            <AlertCircle className="w-6 h-6 text-red-500 mb-2" /><span className="text-sm font-medium text-stone-700">錯題本</span>
+                        </button>
+                        <button onClick={() => onNavigate('favorites')} className="bg-white p-4 rounded-xl shadow-sm flex flex-col items-center justify-center hover:bg-stone-50 transition">
+                            <Heart className="w-6 h-6 text-rose-500 mb-2" /><span className="text-sm font-medium text-stone-700">題目收藏</span>
+                        </button>
+                    </div>
+                </div>
+            );
+        };
+
+        // --- LearningModule ---
+        const LearningModule = ({ onBack }) => {
+            const [activeTab, setActiveTab] = useState('intro'); 
+            const [generatedImages, setGeneratedImages] = useState({});
+            const [loadingImages, setLoadingImages] = useState({});
+            
+            const tabs = [
+                { id: 'intro', label: '注釋與賞析' },
+                { id: 'shape_sound', label: '形音義' },
+                { id: 'idioms', label: '成語典故' },
+                { id: 'knowledge', label: '知識拓展' },
+                { id: 'structure', label: '課文結構' },
+            ];
+
+            const handleGenerateImage = async (key, prompt) => {
+                if (loadingImages[key]) return;
+                setLoadingImages(prev => ({ ...prev, [key]: true }));
+                const imageUrl = await generateAIImage(prompt);
+                if (imageUrl) {
+                    setGeneratedImages(prev => ({ ...prev, [key]: imageUrl }));
+                }
+                setLoadingImages(prev => ({ ...prev, [key]: false }));
+            };
+
+            const handleDownloadAll = () => {
+                const images = Object.entries(generatedImages);
+                if (images.length === 0) {
+                    alert("目前沒有生成的圖片可供下載");
+                    return;
+                }
+                
+                images.forEach(([key, url], index) => {
+                    setTimeout(() => {
+                        const link = document.createElement('a');
+                        link.href = url;
+                        const filename = `generated_${key}.jpg`;
+                        link.download = filename;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }, index * 300);
+                });
+            };
+
+            const renderImageSection = (prompt, uniqueKey) => {
+                if (generatedImages[uniqueKey]) {
+                    return (
+                        <div className="mt-4 border-t border-dashed border-stone-200 pt-4">
+                            <div className="relative group">
+                                <img src={generatedImages[uniqueKey]} alt="AI Generated" className="w-full h-auto rounded-lg shadow-sm" />
+                                <div className="absolute top-2 right-2 bg-black/50 text-white text-xs px-2 py-1 rounded">AI 生成</div>
+                            </div>
+                        </div>
+                    );
+                }
+                return (
+                    <div className="mt-4 border-t border-dashed border-stone-200 pt-4">
+                         <button 
+                            onClick={() => handleGenerateImage(uniqueKey, prompt)}
+                            disabled={loadingImages[uniqueKey]}
+                            className="w-full py-2 bg-gradient-to-r from-cyan-50 to-blue-50 border border-cyan-200 text-cyan-700 rounded-lg font-medium flex items-center justify-center hover:from-cyan-100 hover:to-blue-100 transition disabled:opacity-50 text-sm"
+                        >
+                            {loadingImages[uniqueKey] ? (
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> 正在繪製...</>
+                            ) : (
+                                <><ImageIcon className="w-4 h-4 mr-2" /> ✨ 生成 AI 意境圖</>
+                            )}
+                        </button>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="h-full flex flex-col">
+                    <div className="bg-white shadow-sm border-b px-4 py-3 flex items-center justify-between sticky top-0 z-10">
+                        <div className="flex items-center">
+                            <button onClick={onBack} className="flex items-center text-stone-600 hover:text-cyan-600">
+                                <ArrowLeft className="w-5 h-5 mr-1" /> 返回
+                            </button>
+                            <div className="w-4"></div>
+                            <h2 className="font-bold text-lg text-stone-800 hidden md:block">學習重點</h2>
+                        </div>
+                        <button onClick={handleDownloadAll} className="flex items-center px-3 py-1.5 bg-cyan-100 text-cyan-700 rounded-lg hover:bg-cyan-200 transition text-sm font-medium" title="下載所有已生成的圖片">
+                            <Download className="w-4 h-4 mr-1.5" /> 下載圖片
+                        </button>
+                    </div>
+                    
+                    <div className="flex overflow-x-auto bg-stone-50 px-2 py-2 gap-2 sticky top-14 z-10 border-b">
+                        {tabs.map(tab => (
+                            <button
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition ${
+                                    activeTab === tab.id 
+                                        ? 'bg-cyan-600 text-white shadow-md' 
+                                        : 'bg-white text-stone-600 hover:bg-cyan-50 border border-stone-200'
+                                }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-stone-100 pb-20">
+                        <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm p-6 min-h-[500px]">
+                            
+                            {activeTab === 'intro' && (
+                                <div className="space-y-6">
+                                    <h3 className="text-2xl font-bold text-stone-800 border-b pb-2">{STUDY_CONTENT.intro.title}</h3>
+                                    <div className="grid gap-6">
+                                        {STUDY_CONTENT.intro.items.map((item, i) => (
+                                            <div key={i} className="border border-stone-200 rounded-xl p-5 hover:shadow-md transition bg-white">
+                                                <h4 className="font-bold text-xl text-cyan-700 mb-2">{item.term}</h4>
+                                                <p className="text-stone-700 mb-3 text-lg leading-relaxed whitespace-pre-wrap">{item.definition}</p>
+                                                {renderImageSection(item.prompt, `intro_${i}`)}
+                                            </div>
+                                        ))}
+                                        {/* 獵寮 Special Block */}
+                                        <div className="border-l-4 border-emerald-500 bg-emerald-50 p-6 rounded-r-xl">
+                                            <h4 className="font-bold text-xl text-emerald-800 mb-4 flex items-center"><Tent className="w-6 h-6 mr-2"/> {STUDY_CONTENT.intro.special_item.term}</h4>
+                                            <p className="text-emerald-900 font-bold mb-4">{STUDY_CONTENT.intro.special_item.definition}</p>
+                                            <div className="text-stone-700 leading-relaxed whitespace-pre-wrap text-sm bg-white/50 p-4 rounded-lg">
+                                                {STUDY_CONTENT.intro.special_item.long_desc}
+                                            </div>
+                                            {renderImageSection(STUDY_CONTENT.intro.special_item.prompt, 'intro_special')}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'shape_sound' && (
+                                <div className="space-y-8">
+                                    <h3 className="text-2xl font-bold text-stone-800 border-b pb-2">{STUDY_CONTENT.shape_sound.title}</h3>
+                                    
+                                    <div>
+                                        <h4 className="text-lg font-bold text-purple-700 mb-3 bg-purple-50 p-2 rounded w-fit">一字多音與形近字</h4>
+                                        <div className="grid gap-4">
+                                            {STUDY_CONTENT.shape_sound.items.map((item, i) => (
+                                                <div key={i} className="bg-white border border-purple-100 p-4 rounded-lg shadow-sm">
+                                                    <div className="flex items-center mb-2">
+                                                        <span className="text-2xl font-bold text-purple-800 mr-3 border-r pr-3 border-purple-200">{item.char}</span>
+                                                    </div>
+                                                    <p className="text-stone-700 whitespace-pre-wrap leading-relaxed">{item.content}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h4 className="text-lg font-bold text-rose-700 mb-3 bg-rose-50 p-2 rounded w-fit">相似字辨析</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {STUDY_CONTENT.shape_sound.confusing.map((item, i) => (
+                                                <div key={i} className="flex justify-between items-center bg-white border border-stone-200 p-3 rounded-lg">
+                                                    <span className="font-medium text-stone-800">{item.text}</span>
+                                                    <span className="text-sm font-mono text-rose-600 bg-rose-50 px-2 py-1 rounded">{item.sounds}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'idioms' && (
+                                <div className="space-y-8">
+                                    <h3 className="text-2xl font-bold text-stone-800 border-b pb-2">{STUDY_CONTENT.idioms.title}</h3>
+                                    
+                                    <div>
+                                        <h4 className="text-lg font-bold text-amber-700 mb-3 bg-amber-50 p-2 rounded w-fit flex items-center"><Leaf className="w-5 h-5 mr-2"/> 狩獵相關成語</h4>
+                                        <div className="grid gap-4">
+                                            {STUDY_CONTENT.idioms.hunting.map((item, i) => (
+                                                <div key={i} className="bg-white border border-amber-100 p-5 rounded-xl shadow-sm">
+                                                    <h5 className="font-bold text-lg text-amber-900 mb-2">{item.name}</h5>
+                                                    <p className="text-stone-700 mb-2">{item.mean}</p>
+                                                    {item.note && <p className="text-sm text-stone-500 italic bg-stone-50 p-2 rounded">{item.note}</p>}
+                                                    {renderImageSection(item.prompt, `idioms_hunting_${i}`)}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h4 className="text-lg font-bold text-blue-700 mb-3 bg-blue-50 p-2 rounded w-fit flex items-center"><Droplets className="w-5 h-5 mr-2"/> 水相關成語</h4>
+                                        <div className="grid gap-4">
+                                            {STUDY_CONTENT.idioms.water.map((item, i) => (
+                                                <div key={i} className="bg-white border border-blue-100 p-5 rounded-xl shadow-sm">
+                                                    <h5 className="font-bold text-lg text-blue-900 mb-2">{item.name}</h5>
+                                                    <p className="text-stone-700">{item.mean}</p>
+                                                    {renderImageSection(item.prompt, `idioms_water_${i}`)}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h4 className="text-lg font-bold text-red-700 mb-3 bg-red-50 p-2 rounded w-fit">與「取之有節」相反的成語</h4>
+                                        <div className="grid gap-4">
+                                            {STUDY_CONTENT.idioms.stories.map((item, i) => (
+                                                <div key={i} className="bg-white border-l-4 border-red-400 p-5 rounded shadow-sm">
+                                                    <h5 className="font-bold text-lg text-red-900 mb-1">{item.name}</h5>
+                                                    <p className="text-stone-700 mb-2 font-bold">{item.mean}</p>
+                                                    <p className="text-sm text-stone-500 mb-3">出處：{item.source}</p>
+                                                    <div className="bg-stone-50 p-3 rounded text-sm text-stone-600 leading-relaxed">
+                                                        <span className="font-bold block mb-1">典故：</span>{item.story}
+                                                    </div>
+                                                    {renderImageSection(item.prompt, `idioms_story_${i}`)}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'knowledge' && (
+                                <div className="space-y-8">
+                                    <h3 className="text-2xl font-bold text-stone-800 border-b pb-2">{STUDY_CONTENT.knowledge.title}</h3>
+                                    
+                                    <div>
+                                        <h4 className="text-lg font-bold text-green-700 mb-3 bg-green-50 p-2 rounded w-fit">經籍佳言 (取之有節)</h4>
+                                        <div className="space-y-4">
+                                            {STUDY_CONTENT.knowledge.concepts.map((item, i) => (
+                                                <div key={i} className="bg-green-50/50 p-5 rounded-xl border border-green-100">
+                                                    <h5 className="font-bold text-green-900 text-lg mb-1">{item.title} <span className="text-sm font-normal text-stone-500">({item.source})</span></h5>
+                                                    <p className="text-stone-700 leading-relaxed">{item.content}</p>
+                                                    {renderImageSection(item.prompt, `know_concept_${i}`)}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h4 className="text-lg font-bold text-stone-700 mb-3 bg-stone-100 p-2 rounded w-fit">相關事例</h4>
+                                        <div className="grid md:grid-cols-2 gap-4">
+                                            {STUDY_CONTENT.knowledge.examples.map((item, i) => (
+                                                <div key={i} className="bg-white border border-stone-200 p-5 rounded-xl shadow-sm">
+                                                    <h5 className="font-bold text-stone-900 mb-2">{item.title}</h5>
+                                                    <p className="text-stone-600 text-sm leading-relaxed">{item.content}</p>
+                                                    {renderImageSection(item.prompt, `know_example_${i}`)}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h4 className="text-lg font-bold text-teal-700 mb-3 bg-teal-50 p-2 rounded w-fit">自然名言佳句</h4>
+                                        <div className="space-y-2">
+                                            {STUDY_CONTENT.knowledge.quotes.map((quote, i) => (
+                                                <div key={i} className="bg-white p-4 rounded-lg border-l-4 border-teal-400 shadow-sm">
+                                                    <p className="text-stone-800 font-medium mb-1">"{quote.text}"</p>
+                                                    <p className="text-teal-600 text-sm text-right">— {quote.author}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'structure' && (
+                                <div className="space-y-6">
+                                    <h3 className="text-2xl font-bold text-stone-800 border-b pb-2">{STUDY_CONTENT.structure.title}</h3>
+                                    <div className="space-y-6">
+                                        {STUDY_CONTENT.structure.parts.map((part, i) => (
+                                            <div key={i} className="flex flex-col md:flex-row gap-4 bg-white border border-stone-200 p-6 rounded-xl shadow-sm hover:shadow-md transition">
+                                                <div className="flex-1">
+                                                    <span className="inline-block px-3 py-1 bg-stone-800 text-white text-xs rounded-full mb-3">{part.section}</span>
+                                                    <h4 className="text-xl font-bold text-stone-900 mb-2">{part.title}</h4>
+                                                    <p className="text-stone-600 leading-relaxed text-lg">{part.content}</p>
+                                                </div>
+                                                <div className="w-full md:w-1/3">
+                                                    {renderImageSection(part.prompt, `structure_${i}`)}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const FullQuizModule = ({ user, onBack, onComplete }) => {
+            const [selectedCategory, setSelectedCategory] = useState(null); 
+            const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+            const [answers, setAnswers] = useState({});
+            const [favorites, setFavorites] = useState(new Set());
+            const [questions, setQuestions] = useState([]);
+            const [isAnswered, setIsAnswered] = useState(false);
+            const [showConfetti, setShowConfetti] = useState(false);
+            const [isSubmitting, setIsSubmitting] = useState(false);
+
+            useEffect(() => {
+                if (!selectedCategory) return;
+                let filtered = [...ALL_QUESTIONS];
+                if (selectedCategory !== 'all') {
+                    filtered = filtered.filter(q => q.category === selectedCategory);
+                }
+                filtered = filtered.sort(() => 0.5 - Math.random());
+                setQuestions(filtered);
+                setCurrentQuestionIndex(0);
+                setAnswers({});
+                setIsAnswered(false);
+            }, [selectedCategory]);
+
+            useEffect(() => {
+                const favSet = LocalDB.getFavorites();
+                const intSet = new Set(Array.from(favSet).map(id => parseInt(id)));
+                setFavorites(intSet);
+            }, []);
+
+            const toggleFavorite = (qId) => {
+                const newFavs = LocalDB.toggleFavorite(qId);
+                const intSet = new Set(Array.from(newFavs).map(id => parseInt(id)));
+                setFavorites(intSet);
+            };
+
+            const handleAnswer = (option) => {
+                if (isAnswered) return; 
+                const currentQ = questions[currentQuestionIndex];
+                const isCorrect = option === currentQ.answer;
+                setAnswers(prev => ({ ...prev, [currentQ.id]: option }));
+                setIsAnswered(true);
+                if (isCorrect) {
+                    playSound('correct');
+                    setShowConfetti(true);
+                    setTimeout(() => setShowConfetti(false), 2500);
+                } else {
+                    playSound('incorrect');
+                }
+            };
+
+            const handleSubmit = () => {
+                if (isSubmitting) return; 
+                setIsSubmitting(true);
+                try {
+                    let score = 0;
+                    const details = questions.map(q => {
+                        const isCorrect = answers[q.id] === q.answer;
+                        if (isCorrect) score += 1;
+                        return {
+                            id: q.id,
+                            question: q.question,
+                            userAnswer: answers[q.id],
+                            correctAnswer: q.answer,
+                            isCorrect,
+                            options: q.options,
+                            category: q.category
+                        };
+                    });
+                    
+                    LocalDB.addHistory({
+                        score: Math.round((score / questions.length) * 100),
+                        total: questions.length,
+                        category: selectedCategory === 'all' ? '綜合挑戰' : selectedCategory,
+                        details: details
+                    });
+
+                    for (const detail of details) {
+                        if (!detail.isCorrect) {
+                            LocalDB.addMistake({
+                                id: detail.id,
+                                question: detail.question,
+                                answer: detail.correctAnswer,
+                                category: detail.category
+                            });
+                        }
+                    }
+
+                    onComplete({ score: Math.round((score / questions.length) * 100), details });
+                } catch (error) {
+                    console.error(error);
+                    alert("儲存成績時發生錯誤");
+                    setIsSubmitting(false); 
+                }
+            };
+
+            if (!selectedCategory) {
+                const categories = [
+                    { id: '注釋', label: '注釋與賞析', icon: <BookOpen className="w-6 h-6 text-blue-500"/>, desc: '課文重點詞語與賞析' },
+                    { id: '形音義', label: '形音義', icon: <PenTool className="w-6 h-6 text-purple-500"/>, desc: '字音字形辨析與多音字' },
+                    { id: '成語', label: '成語典故', icon: <List className="w-6 h-6 text-amber-500"/>, desc: '狩獵與水相關成語' },
+                    { id: '獵寮知識', label: '獵寮知識', icon: <Tent className="w-6 h-6 text-emerald-500"/>, desc: '原住民獵寮的搭建與禁忌' },
+                    { id: '知識拓展', label: '知識拓展', icon: <Leaf className="w-6 h-6 text-green-500"/>, desc: '取之有節與自然名言' },
+                    { id: 'all', label: '全範圍綜合挑戰', icon: <Zap className="w-6 h-6 text-yellow-500"/>, desc: '包含以上所有單元的綜合測驗', isAll: true },
+                ];
+                return (
+                    <div className="h-full flex flex-col bg-stone-50">
+                        <div className="bg-white shadow-sm border-b px-4 py-3 flex items-center sticky top-0 z-10"><button onClick={onBack} className="flex items-center text-stone-600 hover:text-cyan-600 mr-4"><ArrowLeft className="w-5 h-5 mr-1" /> 返回</button><h2 className="font-bold text-lg text-stone-800">選擇測驗單元</h2></div>
+                        <div className="p-6 overflow-y-auto"><div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">{categories.map(cat => (<button key={cat.id} onClick={() => setSelectedCategory(cat.id)} className={`text-left p-6 rounded-2xl shadow-sm border-2 transition hover:shadow-md flex items-start ${cat.isAll ? 'bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200 hover:border-yellow-400' : 'bg-white border-stone-100 hover:border-cyan-200'}`}><div className={`p-3 rounded-full mr-4 ${cat.isAll ? 'bg-white shadow-sm' : 'bg-stone-50'}`}>{cat.icon}</div><div><h3 className={`font-bold text-lg mb-1 ${cat.isAll ? 'text-yellow-800' : 'text-stone-800'}`}>{cat.label}</h3><p className="text-sm text-stone-500">{cat.desc}</p></div></button>))}</div></div>
+                    </div>
+                );
+            }
+
+            if (questions.length === 0) return <LoadingScreen />;
+            const currentQ = questions[currentQuestionIndex];
+            const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+            
+            return (
+                <div className="h-full flex flex-col bg-stone-50 relative">
+                    {showConfetti && <Confetti />}
+                    <div className="bg-white shadow-sm px-4 py-3 flex items-center justify-between z-10">
+                        <div className="flex items-center"><button onClick={onBack} className="flex items-center text-stone-500 hover:text-cyan-600 mr-4 px-3 py-1 rounded-full hover:bg-stone-50 transition border border-transparent hover:border-stone-200"><Home className="w-4 h-4 mr-1" /> <span className="text-sm font-medium">首頁</span></button><div className="flex items-center text-stone-500 border-l pl-4"><span className="font-mono text-lg font-bold text-cyan-600 mr-2">{currentQuestionIndex + 1}</span><span className="text-sm">/ {questions.length}</span></div></div>
+                        <div className="flex-1 mx-4 h-2 bg-stone-200 rounded-full overflow-hidden max-w-xs md:max-w-md hidden md:block"><div className="h-full bg-cyan-500 transition-all duration-300" style={{ width: `${progress}%` }}></div></div>
+                        <button onClick={() => toggleFavorite(currentQ.id)} className={`p-2 rounded-full hover:bg-stone-100 transition`}><Heart className={`w-6 h-6 transition-colors duration-300 ${favorites.has(currentQ.id) ? 'fill-rose-500 text-rose-500' : 'text-stone-400'}`} /></button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 md:p-8 flex flex-col items-center">
+                        <div className="w-full max-w-2xl flex-1">
+                            <div className="bg-white rounded-2xl shadow-lg p-6 md:p-10 mb-6 relative">
+                                <span className="inline-block px-3 py-1 bg-cyan-100 text-cyan-700 text-xs font-bold rounded-full mb-4">{currentQ.category}</span>
+                                <h3 className="text-xl md:text-2xl font-bold text-stone-800 mb-8 leading-relaxed">{currentQ.question}</h3>
+                                <div className="space-y-3">{currentQ.options.map((opt, i) => {
+                                    let statusClass = "border-stone-100 hover:border-stone-300 text-stone-700";
+                                    if (isAnswered) { if (opt === currentQ.answer) { statusClass = "border-emerald-500 bg-emerald-50 text-emerald-900 font-bold"; } else if (opt === answers[currentQ.id]) { statusClass = "border-red-500 bg-red-50 text-red-900"; } else { statusClass = "border-stone-100 opacity-50"; } }
+                                    return (<button key={i} onClick={() => handleAnswer(opt)} disabled={isAnswered} className={`w-full text-left p-5 rounded-xl border-2 transition relative text-lg font-medium ${statusClass}`}><span className="inline-block w-6 font-bold text-stone-400 mr-2">{String.fromCharCode(65 + i)}.</span>{opt}{isAnswered && opt === currentQ.answer && <CheckCircle className="w-5 h-5 text-emerald-600 absolute right-4 top-1/2 -translate-y-1/2" />}{isAnswered && opt === answers[currentQ.id] && opt !== currentQ.answer && <XCircle className="w-5 h-5 text-red-600 absolute right-4 top-1/2 -translate-y-1/2" />}</button>);
+                                })}</div>
+                            </div>
+                            {isAnswered && (<div className={`rounded-xl p-6 mb-6 animate-fade-in ${answers[currentQ.id] === currentQ.answer ? 'bg-emerald-100 text-emerald-900' : 'bg-red-50 text-red-900'}`}><div className="flex items-center mb-2 font-bold text-lg">{answers[currentQ.id] === currentQ.answer ? <><CheckCircle className="w-6 h-6 mr-2" /> 答對了！</> : <><XCircle className="w-6 h-6 mr-2" /> 答錯了！</>}</div><div className="mt-4 text-xl"><span className="font-bold">正確答案：</span> {currentQ.answer}<div className="mt-3 text-stone-700 text-lg leading-relaxed"></div></div></div>)}
+                        </div>
+                    </div>
+                    <div className="bg-white p-4 border-t flex justify-between items-center z-10 sticky bottom-0">
+                        <div className="w-24"></div> 
+                        {isAnswered ? (currentQuestionIndex < questions.length - 1 ? (<button onClick={() => { setIsAnswered(false); setShowConfetti(false); setCurrentQuestionIndex(c => c + 1); }} className="px-8 py-3 bg-stone-800 text-white rounded-full hover:bg-stone-700 transition font-bold shadow-lg flex items-center animate-bounce-subtle">下一題 <ChevronRight className="w-5 h-5 ml-1" /></button>) : (<button onClick={handleSubmit} disabled={isSubmitting} className="px-8 py-3 bg-cyan-600 text-white rounded-full hover:bg-cyan-700 transition font-bold shadow-lg shadow-cyan-200 flex items-center disabled:opacity-50 disabled:cursor-not-allowed">{isSubmitting ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> 處理中...</> : <>查看總成績 <CheckCircle className="w-5 h-5 ml-2" /></>}</button>)) : (<div className="text-stone-400 text-sm italic">請選擇一個答案以繼續</div>)}<div className="w-24"></div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ResultReview = ({ result, onExit }) => {
+            return (
+                <div className="h-full bg-stone-50 overflow-y-auto">
+                    <div className="max-w-3xl mx-auto p-6">
+                        <div className="bg-white rounded-3xl shadow-lg p-8 mb-8 text-center relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-cyan-500 to-blue-500"></div>
+                            <h2 className="text-3xl font-bold text-stone-800 mb-2">測驗結果</h2>
+                            <div className="text-6xl font-black text-cyan-600 my-4">{result.score}<span className="text-2xl text-stone-400 font-normal">分</span></div>
+                            <div className="flex justify-center gap-4 text-sm text-stone-500">
+                                <span>總題數: {result.details.length}</span>
+                                <span className="text-green-600">答對: {result.details.filter(d => d.isCorrect).length}</span>
+                                <span className="text-red-500">答錯: {result.details.filter(d => !d.isCorrect).length}</span>
+                            </div>
+                            <button onClick={onExit} className="mt-8 px-8 py-2 border border-stone-300 rounded-full hover:bg-stone-50 transition">
+                                返回首頁
+                            </button>
+                        </div>
+
+                        <h3 className="text-xl font-bold text-stone-800 mb-4 px-2">試題解析</h3>
+                        <div className="space-y-4">
+                            {result.details.map((item, i) => (
+                                <div key={i} className={`bg-white rounded-xl shadow-sm p-6 border-l-4 ${item.isCorrect ? 'border-emerald-500' : 'border-red-500'}`}>
+                                    <div className="flex items-start justify-between mb-3">
+                                        <h4 className="font-bold text-lg text-stone-800 flex-1">{i + 1}. {item.question}</h4>
+                                        {item.isCorrect 
+                                            ? <CheckCircle className="w-6 h-6 text-emerald-500 flex-shrink-0" />
+                                            : <XCircle className="w-6 h-6 text-red-500 flex-shrink-0" />
+                                        }
+                                    </div>
+                                    <div className="space-y-2 text-sm">
+                                        <div className="flex items-center">
+                                            <span className="w-20 text-stone-500">您的答案：</span>
+                                            <span className={`font-bold ${item.isCorrect ? 'text-emerald-700' : 'text-red-600'}`}>
+                                                {item.userAnswer || '(未作答)'}
+                                            </span>
+                                        </div>
+                                        {!item.isCorrect && (
+                                            <div className="flex items-center">
+                                                <span className="w-20 text-stone-500">正確答案：</span>
+                                                <span className="font-bold text-emerald-700">{item.correctAnswer}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const ListView = ({ title, type, user, onBack }) => {
+            const [items, setItems] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [expandedId, setExpandedId] = useState(null);
+
+            useEffect(() => {
+                const fetchData = async () => {
+                    let data = [];
+                    
+                    if (type === 'history') {
+                        data = LocalDB.getHistory();
+                    } else if (type === 'mistakes') {
+                        data = LocalDB.getMistakes();
+                    } else if (type === 'favorites') {
+                        const favSet = LocalDB.getFavorites();
+                        const favIds = Array.from(favSet).map(id => parseInt(id));
+                        data = ALL_QUESTIONS.filter(q => favIds.includes(q.id));
+                    }
+
+                    setItems(data);
+                    setLoading(false);
+                };
+                fetchData();
+            }, [user, type]);
+
+            if (loading) return <LoadingScreen />;
+
+            return (
+                <div className="h-full bg-stone-50 flex flex-col">
+                    <div className="bg-white shadow-sm border-b px-4 py-3 flex items-center sticky top-0 z-10">
+                        <button onClick={onBack} className="flex items-center text-stone-600 hover:text-cyan-600 mr-4">
+                            <ArrowLeft className="w-5 h-5 mr-1" /> 返回
+                        </button>
+                        <h2 className="font-bold text-lg">{title}</h2>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6">
+                        <div className="max-w-3xl mx-auto space-y-4">
+                            {items.length === 0 && (
+                                <div className="text-center py-20 text-stone-400">
+                                    <p>目前沒有紀錄</p>
+                                </div>
+                            )}
+
+                            {/* History Item */}
+                            {type === 'history' && items.map((item) => (
+                                <div key={item.id} className="bg-white p-4 rounded-xl shadow-sm hover:shadow-md transition">
+                                    <div 
+                                        className="flex justify-between items-center cursor-pointer" 
+                                        onClick={() => setExpandedId(expandedId === item.id ? null : item.id)}
+                                    >
+                                        <div>
+                                            <div className="text-stone-500 text-xs mb-1">
+                                                {item.date ? new Date(item.date).toLocaleString() : 'Just now'}
+                                            </div>
+                                            <div className="font-bold text-stone-800 flex items-center">
+                                                <span className="mr-2 text-sm bg-stone-100 px-2 py-0.5 rounded text-stone-600">
+                                                    {item.category || '綜合挑戰'}
+                                                </span>
+                                                測驗得分：
+                                                <span className={`text-lg ml-1 ${item.score >= 80 ? 'text-emerald-600' : 'text-orange-600'}`}>
+                                                    {item.score}
+                                                </span> 分
+                                            </div>
+                                        </div>
+                                        {expandedId === item.id ? (
+                                            <ChevronUp className="w-5 h-5 text-stone-400" />
+                                        ) : (
+                                            <ChevronDown className="w-5 h-5 text-stone-400" />
+                                        )}
+                                    </div>
+                                    
+                                    {/* Enhanced Detail View for History */}
+                                    {expandedId === item.id && (
+                                        <div className="mt-4 pt-4 border-t border-stone-100 space-y-4">
+                                            {item.details.map((d, i) => (
+                                                <div key={i} className="bg-stone-50 p-4 rounded-lg border border-stone-200">
+                                                    {/* Question Header */}
+                                                    <div className="flex items-start mb-3">
+                                                        <span className="font-mono font-bold text-orange-600 mr-2 mt-0.5">{i+1}.</span>
+                                                        <h4 className="font-bold text-stone-800 text-lg leading-snug flex-1">
+                                                            {d.question}
+                                                        </h4>
+                                                        {d.isCorrect 
+                                                            ? <CheckCircle className="w-5 h-5 text-emerald-500 flex-shrink-0 ml-2" />
+                                                            : <XCircle className="w-5 h-5 text-red-500 flex-shrink-0 ml-2" />
+                                                        }
+                                                    </div>
+
+                                                    {/* Options Display */}
+                                                    <div className="space-y-1 mb-3 pl-6">
+                                                        {d.options && d.options.map((opt, idx) => {
+                                                            let optionStyle = "text-stone-600";
+                                                            let icon = null;
+
+                                                            if (opt === d.correctAnswer) {
+                                                                optionStyle = "bg-emerald-100 text-emerald-800 font-bold border-emerald-200";
+                                                                icon = <CheckCircle className="w-4 h-4 ml-2 inline" />;
+                                                            } else if (opt === d.userAnswer && !d.isCorrect) {
+                                                                optionStyle = "bg-red-50 text-red-800 line-through border-red-100";
+                                                                icon = <XCircle className="w-4 h-4 ml-2 inline" />;
+                                                            }
+
+                                                            return (
+                                                                <div key={idx} className={`px-3 py-2 rounded text-sm border border-transparent ${optionStyle} flex items-center`}>
+                                                                    <span className="font-mono w-5 opacity-50 mr-1">{String.fromCharCode(65 + idx)}.</span>
+                                                                    <span className="flex-1">{opt}</span>
+                                                                    {icon}
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    {/* Analysis / Feedback Section */}
+                                                    <div className="bg-white p-3 rounded border border-stone-100 text-sm mt-2 pl-6 relative">
+                                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-orange-400 rounded-l"></div>
+                                                        <div className="flex flex-col sm:flex-row gap-y-1 sm:gap-x-6 text-sm mb-1">
+                                                            <div>
+                                                                <span className="text-stone-400 mr-2">您的作答:</span>
+                                                                <span className={`font-bold ${d.isCorrect ? 'text-emerald-600' : 'text-red-600'}`}>
+                                                                    {d.userAnswer || '未作答'}
+                                                                </span>
+                                                            </div>
+                                                            {!d.isCorrect && (
+                                                                <div>
+                                                                    <span className="text-stone-400 mr-2">正確答案:</span>
+                                                                    <span className="font-bold text-emerald-600">{d.correctAnswer}</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+
+                            {/* Mistakes & Favorites List */}
+                            {(type === 'mistakes' || type === 'favorites') && items.map((item) => (
+                                <div key={item.id} className="bg-white p-6 rounded-xl shadow-sm border-l-4 border-orange-400">
+                                    <div className="flex justify-between mb-3">
+                                        <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded">{item.category || (ALL_QUESTIONS.find(q=>q.id === item.id)?.category)}</span>
+                                        {type === 'mistakes' ? (
+                                            <span className="text-xs text-red-500 font-bold">答錯</span>
+                                        ) : (
+                                            <Heart className="w-5 h-5 fill-rose-500 text-rose-500" />
+                                        )}
+                                    </div>
+                                    <h3 className="font-bold text-lg text-stone-800 mb-3">{item.question}</h3>
+                                    <div className="bg-emerald-50 p-3 rounded text-sm text-emerald-800">
+                                        <span className="font-bold">正確答案：</span> {item.answer || (ALL_QUESTIONS.find(q=>q.id === item.id)?.answer)}
+                                    </div>
+                                    
+                                    {/* Controls for removal */}
+                                    <div className="mt-4 flex justify-end">
+                                        {type === 'mistakes' && (
+                                            <button 
+                                                onClick={async (e) => {
+                                                    e.target.innerText = "已移除";
+                                                    e.target.disabled = true;
+                                                    LocalDB.removeMistake(item.id);
+                                                }}
+                                                className="text-sm text-stone-400 hover:text-red-500 flex items-center"
+                                            >
+                                                <CheckCircle className="w-4 h-4 mr-1"/> 我學會了（移除）
+                                            </button>
+                                        )}
+                                        {type === 'favorites' && (
+                                            <button 
+                                                onClick={async (e) => {
+                                                    e.target.innerText = "已取消收藏";
+                                                    e.target.disabled = true;
+                                                    LocalDB.removeFavorite(item.id);
+                                                }}
+                                                className="text-sm text-stone-400 hover:text-red-500 flex items-center"
+                                            >
+                                                <Heart className="w-4 h-4 mr-1"/> 取消收藏
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [user, setUser] = useState(null);
+            const [view, setView] = useState('auth'); 
+            const [loading, setLoading] = useState(true);
+            const [quizResult, setQuizResult] = useState(null);
+
+            useEffect(() => {
+                const checkLogin = () => {
+                    const savedUser = LocalDB.getUser();
+                    if (savedUser) {
+                        setUser(savedUser);
+                        setView('dashboard');
+                    } else {
+                        setUser(null);
+                        setView('auth');
+                    }
+                    setLoading(false);
+                };
+                checkLogin();
+            }, []);
+
+            if (loading) return <LoadingScreen />;
+
+            if (view === 'auth') return <AuthScreen onLogin={(u) => { setUser(u); setView('dashboard'); }} />;
+            if (view === 'dashboard') return <Dashboard user={user} onLogout={() => { setUser(null); setView('auth'); }} onNavigate={setView} />;
+            if (view === 'learn') return <LearningModule onBack={() => setView('dashboard')} />;
+            if (view === 'quiz_setup') {
+                return <FullQuizModule user={user} onBack={() => setView('dashboard')} onComplete={(res) => { setQuizResult(res); setView('quiz_result'); }} />;
+            }
+            if (view === 'quiz_result') return <ResultReview result={quizResult} onExit={() => setView('dashboard')} />;
+            if (view === 'history') return <ListView title="測驗歷史紀錄" type="history" user={user} onBack={() => setView('dashboard')} />;
+            if (view === 'mistakes') return <ListView title="錯題本 (尚未掌握)" type="mistakes" user={user} onBack={() => setView('dashboard')} />;
+            if (view === 'favorites') return <ListView title="我的題目收藏" type="favorites" user={user} onBack={() => setView('dashboard')} />;
+
+            return <div className="p-4 text-center">未知頁面</div>;
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
