@@ -333,35 +333,99 @@
             const q = [];
             let id = 1;
             
-            // 1. 注釋
-            q.push({ id: id++, category: "注釋", question: "「別開蹊徑」的意思是？", options: ["另闢途徑，不與別人相同", "走路很快", "開闢新路", "迷路了"], answer: "另闢途徑，不與別人相同" });
+            // --- 1. 注釋與賞析 (15題) ---
+            q.push({ id: id++, category: "注釋", question: "「律動」的意思是？", options: ["有規律、節奏的運動或變動", "法律的變動", "心跳的聲音", "樂器的震動"], answer: "有規律、節奏的運動或變動" });
+            q.push({ id: id++, category: "注釋", question: "「別開蹊徑」的意思是？", options: ["另闢途徑，不與別人相同", "迷路了", "走路很快", "開闢新路"], answer: "另闢途徑，不與別人相同" });
             q.push({ id: id++, category: "注釋", question: "「飲水思源」比喻什麼？", options: ["不忘本", "口渴要喝水", "尋找水源", "節約用水"], answer: "不忘本" });
             q.push({ id: id++, category: "注釋", question: "「滴水穿石」比喻？", options: ["有志者事竟成", "水力很大", "石頭很硬", "下雨天"], answer: "有志者事竟成" });
             q.push({ id: id++, category: "注釋", question: "「不告而別」的意思？", options: ["沒有先行道別就離去", "忘記說話", "生氣離開", "大聲告別"], answer: "沒有先行道別就離去" });
-            
-            // 2. 獵寮知識
-            q.push({ id: id++, category: "獵寮知識", question: "獵寮的骨架通常使用什麼材料？", options: ["鐵絲", "蘆和藤", "塑膠繩", "鋼筋"], answer: "蘆和藤" });
-            q.push({ id: id++, category: "獵寮知識", question: "獵寮最好靠近什麼地方？", options: ["獵區中心", "通風口", "隱蔽、背風處", "懸崖邊"], answer: "隱蔽、背風處" });
-            q.push({ id: id++, category: "獵寮知識", question: "獵寮之間最合適的距離約為？", options: ["1小時", "4小時步行路程", "1天", "10分鐘"], answer: "4小時步行路程" });
+            q.push({ id: id++, category: "注釋", question: "「佇立」的意思是？", options: ["久立", "馬上離開", "坐下休息", "奔跑"], answer: "久立" });
+            q.push({ id: id++, category: "注釋", question: "「歸屬感」是指？", options: ["心中有所依歸的感覺", "想要回家的感覺", "屬於別人的東西", "失敗的感覺"], answer: "心中有所依歸的感覺" });
+            q.push({ id: id++, category: "注釋", question: "「改過遷善」的意思是？", options: ["改正過失，誠心向善", "搬家到好地方", "改變善良的本性", "原諒別人的過錯"], answer: "改正過失，誠心向善" });
+            q.push({ id: id++, category: "注釋", question: "「時過境遷」是指？", options: ["時間流走，境況也隨之改變", "時間過得很快", "環境都沒有改變", "穿越時空"], answer: "時間流走，境況也隨之改變" });
+            q.push({ id: id++, category: "注釋", question: "「滴水不漏」形容？", options: ["周密細緻，無一疏漏", "水龍頭沒關好", "雨下得很大", "做事拖泥帶水"], answer: "周密細緻，無一疏漏" });
+            q.push({ id: id++, category: "注釋", question: "「探本溯源」比喻？", options: ["探求、追溯事物的根本", "在河邊玩水", "尋找寶藏", "研究植物"], answer: "探求、追溯事物的根本" });
+            q.push({ id: id++, category: "注釋", question: "課文賞析中提到「生活哲學」是指？", options: ["面對和處理生活事務的想法與作法的智慧", "生活的痛苦", "賺錢的方法", "讀書的技巧"], answer: "面對和處理生活事務的想法與作法的智慧" });
+            q.push({ id: id++, category: "注釋", question: "課文賞析中「永續」的意思是？", options: ["長久而持續", "永遠停止", "暫時的", "斷斷續續"], answer: "長久而持續" });
+            q.push({ id: id++, category: "注釋", question: "課文賞析中「借鑑」的意思是？", options: ["以他人的言行作為自己的警惕", "借錢給別人", "照鏡子", "模仿別人"], answer: "以他人的言行作為自己的警惕" });
+            q.push({ id: id++, category: "注釋", question: "「合眼」又作？", options: ["闔眼", "開眼", "瞪眼", "眨眼"], answer: "闔眼" });
 
-            // 3. 形音義
+            // --- 2. 形音義 (15題) ---
             q.push({ id: id++, category: "形音義", question: "「撒」野的讀音？", options: ["ㄙㄚ", "ㄙㄚˇ", "ㄕㄚ", "ㄕㄚˇ"], answer: "ㄙㄚ" });
-            q.push({ id: id++, category: "形音義", question: "「撒」了一地的讀音？", options: ["ㄙㄚ", "ㄙㄚˇ", "ㄕㄚ", "ㄕㄚˇ"], answer: "ㄙㄚˇ" });
-            q.push({ id: id++, category: "形音義", question: "「佇」立的讀音與意思？", options: ["ㄓㄨˋ，久立", "ㄓㄨˇ，積藏", "ㄔㄨˋ，停止", "ㄓㄨˋ，等待"], answer: "ㄓㄨˋ，久立" });
-            q.push({ id: id++, category: "形音義", question: "「貯」藏的讀音？", options: ["ㄓㄨˋ", "ㄓㄨˇ", "ㄔㄨˋ", "ㄑㄧˇ"], answer: "ㄓㄨˇ" });
-            q.push({ id: id++, category: "形音義", question: "啞啞學語的「啞」讀音？", options: ["ㄧㄚˇ", "ㄧㄚ", "ㄜˋ", "ㄨ"], answer: "ㄧㄚ" });
-            
-            // 4. 成語
-            q.push({ id: id++, category: "成語", question: "「見獵心喜」比喻？", options: ["舊習難忘，觸其所好而心情愉悅", "看到獵物很高興", "喜歡打獵", "心地善良"], answer: "舊習難忘，觸其所好而心情愉悅" });
-            q.push({ id: id++, category: "成語", question: "「兔起鶻落」比喻？", options: ["動作快速敏捷", "兔子跳起來", "鳥飛下來", "打獵失敗"], answer: "動作快速敏捷" });
-            q.push({ id: id++, category: "成語", question: "「鳥盡弓藏」比喻？", options: ["天下平定後遺棄功臣", "愛護工具", "不再打獵", "鳥飛走了"], answer: "天下平定後遺棄功臣" });
-            q.push({ id: id++, category: "成語", question: "「竭澤而漁」比喻？", options: ["取盡所有，不留餘地", "努力捕魚", "水源枯竭", "技術高超"], answer: "取盡所有，不留餘地" });
-            q.push({ id: id++, category: "成語", question: "「殺雞取卵」比喻？", options: ["貪圖眼前好處斷絕長遠利益", "殺雞儆猴", "收穫豐富", "愚笨的人"], answer: "貪圖眼前好處斷絕長遠利益" });
+            q.push({ id: id++, category: "形音義", question: "「撒」了一地的讀音？", options: ["ㄙㄚˇ", "ㄙㄚ", "ㄕㄚ", "ㄕㄚˇ"], answer: "ㄙㄚˇ" });
+            q.push({ id: id++, category: "形音義", question: "「佇」立的讀音？", options: ["ㄓㄨˋ", "ㄓㄨˇ", "ㄔㄨˋ", "ㄑㄧˇ"], answer: "ㄓㄨˋ" });
+            q.push({ id: id++, category: "形音義", question: "「貯」藏的讀音？", options: ["ㄓㄨˇ", "ㄓㄨˋ", "ㄔㄨˋ", "ㄑㄧˇ"], answer: "ㄓㄨˇ" });
+            q.push({ id: id++, category: "形音義", question: "啞啞學語的「啞」讀音？", options: ["ㄧㄚ", "ㄧㄚˇ", "ㄜˋ", "ㄨ"], answer: "ㄧㄚ" });
+            q.push({ id: id++, category: "形音義", question: "沙「啞」的讀音？", options: ["ㄧㄚˇ", "ㄧㄚ", "ㄜˋ", "ㄨ"], answer: "ㄧㄚˇ" });
+            q.push({ id: id++, category: "形音義", question: "自「給」自足的讀音？", options: ["ㄐㄧˇ", "ㄍㄟˇ", "ㄏㄜˊ", "ㄎㄜˇ"], answer: "ㄐㄧˇ" });
+            q.push({ id: id++, category: "形音義", question: "「給」錢的讀音？", options: ["ㄍㄟˇ", "ㄐㄧˇ", "ㄏㄜˊ", "ㄎㄜˇ"], answer: "ㄍㄟˇ" });
+            q.push({ id: id++, category: "形音義", question: "「孤」字的含義不包括？", options: ["快樂", "幼年喪父", "單獨", "特出怪異"], answer: "快樂" });
+            q.push({ id: id++, category: "形音義", question: "獵「寮」與眼花「撩」亂的讀音？", options: ["皆為 ㄌㄧㄠˊ", "皆為 ㄌㄧㄠ", "ㄌㄧㄠˊ / ㄌㄧㄠ", "ㄌㄧㄠ / ㄌㄧㄠˊ"], answer: "皆為 ㄌㄧㄠˊ" });
+            q.push({ id: id++, category: "形音義", question: "「芋」葉與濫「竽」充數的讀音？", options: ["ㄩˋ / ㄩˊ", "皆為 ㄩˋ", "皆為 ㄩˊ", "ㄩˊ / ㄩˋ"], answer: "ㄩˋ / ㄩˊ" });
+            q.push({ id: id++, category: "形音義", question: "灌「溉」與感「慨」的讀音？", options: ["ㄍㄞˋ / ㄎㄞˇ", "皆為 ㄍㄞˋ", "皆為 ㄎㄞˇ", "ㄎㄞˇ / ㄍㄞˋ"], answer: "ㄍㄞˋ / ㄎㄞˇ" });
+            q.push({ id: id++, category: "形音義", question: "人「質」與「質」樸的讀音？", options: ["ㄓˋ / ㄓˊ", "皆為 ㄓˋ", "皆為 ㄓˊ", "ㄓˊ / ㄓˋ"], answer: "ㄓˋ / ㄓˊ" });
+            q.push({ id: id++, category: "形音義", question: "下列何者讀音不是「ㄊㄥˊ」？", options: ["滕", "藤", "騰", "謄"], answer: "滕" });
+            q.push({ id: id++, category: "形音義", question: "凹「陷」與內「餡」的讀音？", options: ["皆為 ㄒㄧㄢˋ", "ㄒㄧㄢˋ / ㄒㄧㄢ", "ㄒㄧㄢ / ㄒㄧㄢˋ", "皆為 ㄒㄧㄢ"], answer: "皆為 ㄒㄧㄢˋ" });
 
-            // 5. 知識拓展
-            q.push({ id: id++, category: "知識拓展", question: "孔子「釣而不綱，弋不射宿」體現什麼精神？", options: ["取之有時，用之有節", "釣魚技術", "射箭技巧", "愛護動物"], answer: "取之有時，用之有節" });
+            // --- 3. 成語典故 (15題) ---
+            q.push({ id: id++, category: "成語", question: "「見獵心喜」典故與誰有關？", options: ["程顥", "孔子", "孟子", "蘇軾"], answer: "程顥" });
+            q.push({ id: id++, category: "成語", question: "「一箭雙鵰」比喻？", options: ["一次舉動便可達到雙倍效果", "射箭技術很好", "看到兩隻鳥", "運氣很好"], answer: "一次舉動便可達到雙倍效果" });
+            q.push({ id: id++, category: "成語", question: "「兔起鶻落」比喻什麼？", options: ["動作快速敏捷", "兔子很可愛", "老鷹抓兔子", "失敗了"], answer: "動作快速敏捷" });
+            q.push({ id: id++, category: "成語", question: "「焚林而畋」的意思是？", options: ["焚毀山林以獵取野獸，比喻索取一空", "在森林裡烤肉", "森林失火了", "種樹造林"], answer: "焚毀山林以獵取野獸，比喻索取一空" });
+            q.push({ id: id++, category: "成語", question: "「鳥盡弓藏」比喻？", options: ["天下平定後遺棄功臣", "愛護工具", "弓箭壞了", "鳥都飛走了"], answer: "天下平定後遺棄功臣" });
+            q.push({ id: id++, category: "成語", question: "「兔死狗烹」比喻？", options: ["事成之後，出過力的人即遭到殺戮或見棄", "煮狗肉火鍋", "兔子和狗打架", "食物很美味"], answer: "事成之後，出過力的人即遭到殺戮或見棄" });
+            q.push({ id: id++, category: "成語", question: "「鏡花水月」比喻？", options: ["空幻不實在", "風景優美", "照鏡子", "月亮很圓"], answer: "空幻不實在" });
+            q.push({ id: id++, category: "成語", question: "「水到渠成」比喻？", options: ["條件完備則自然成功", "水流很急", "蓋水溝", "運氣不好"], answer: "條件完備則自然成功" });
+            q.push({ id: id++, category: "成語", question: "「車水馬龍」形容？", options: ["繁華熱鬧的景象", "車子壞了", "馬在跑", "淹水了"], answer: "繁華熱鬧的景象" });
+            q.push({ id: id++, category: "成語", question: "「望穿秋水」形容？", options: ["盼望的殷切", "眼睛很好", "秋天的水很清澈", "失望"], answer: "盼望的殷切" });
+            q.push({ id: id++, category: "成語", question: "「杯水車薪」比喻？", options: ["無濟於事", "節約用水", "很有幫助", "薪水很少"], answer: "無濟於事" });
+            q.push({ id: id++, category: "成語", question: "「竭澤而漁」出自哪部典籍？", options: ["呂氏春秋", "論語", "孟子", "史記"], answer: "呂氏春秋" });
+            q.push({ id: id++, category: "成語", question: "「殺雞取卵」比喻？", options: ["貪圖眼前好處斷絕長遠利益", "殺雞儆猴", "收穫豐富", "愚笨的人"], answer: "貪圖眼前好處斷絕長遠利益" });
+            q.push({ id: id++, category: "成語", question: "「見兔放鷹」比喻？", options: ["看準時機，及時採取行動", "欺負小動物", "養老鷹", "放棄機會"], answer: "看準時機，及時採取行動" });
+            q.push({ id: id++, category: "成語", question: "「張羅彀弓」是指？", options: ["準備好射獵的工作", "張燈結彩", "練習射箭", "製作弓箭"], answer: "準備好射獵的工作" });
+
+            // --- 4. 獵寮知識 (10題) ---
+            q.push({ id: id++, category: "獵寮知識", question: "獵寮的骨架通常使用什麼材料？", options: ["樹枝或竹管", "鐵絲", "鋼筋", "水泥"], answer: "樹枝或竹管" });
+            q.push({ id: id++, category: "獵寮知識", question: "傳統上，搭蓋獵寮骨架要用什麼綁？", options: ["蘆和藤", "鐵絲", "塑膠繩", "釘子"], answer: "蘆和藤" });
+            q.push({ id: id++, category: "獵寮知識", question: "獵寮屋頂通常使用什麼材料？", options: ["茅草或芭蕉葉", "瓦片", "鐵皮", "玻璃"], answer: "茅草或芭蕉葉" });
+            q.push({ id: id++, category: "獵寮知識", question: "獵寮最好靠近什麼地方？", options: ["隱蔽、背風處", "獵區中心", "懸崖邊", "大路旁"], answer: "隱蔽、背風處" });
+            q.push({ id: id++, category: "獵寮知識", question: "為什麼獵寮要選在隱蔽背風處？", options: ["以免煙火氣味驚動動物", "怕被別人看到", "風景比較好", "比較涼快"], answer: "以免煙火氣味驚動動物" });
+            q.push({ id: id++, category: "獵寮知識", question: "一座獵寮通常可容納幾個人？", options: ["三人", "一人", "十人", "五十人"], answer: "三人" });
+            q.push({ id: id++, category: "獵寮知識", question: "通常由誰負責搭建獵寮？", options: ["年輕的獵人", "年紀大的獵人", "部落長老", "婦女"], answer: "年輕的獵人" });
+            q.push({ id: id++, category: "獵寮知識", question: "通常由誰負責生火煮飯？", options: ["年紀大的獵人", "年輕的獵人", "小孩", "婦女"], answer: "年紀大的獵人" });
+            q.push({ id: id++, category: "獵寮知識", question: "獵寮通常「不會」搭建在哪裡？", options: ["獵區中心位置", "溪水旁", "背風處", "有茅草的地方"], answer: "獵區中心位置" });
+            q.push({ id: id++, category: "獵寮知識", question: "獵寮與獵寮之間最合適的距離約為？", options: ["4小時步行路程", "1小時步行路程", "1天步行路程", "10分鐘"], answer: "4小時步行路程" });
+
+            // --- 5. 知識拓展 (15題) ---
+            q.push({ id: id++, category: "知識拓展", question: "孔子「釣而不綱，弋不射宿」體現什麼精神？", options: ["取之有時，用之有節", "釣魚技術高超", "射箭技巧好", "不喜歡吃魚"], answer: "取之有時，用之有節" });
+            q.push({ id: id++, category: "知識拓展", question: "「數罟不入洿池...」出自哪部經典？", options: ["孟子", "論語", "大學", "中庸"], answer: "孟子" });
+            q.push({ id: id++, category: "知識拓展", question: "古代制定春夏秋冬禁令，見於哪本書？", options: ["呂氏春秋", "史記", "漢書", "山海經"], answer: "呂氏春秋" });
             q.push({ id: id++, category: "知識拓展", question: "達悟族飛魚祭體現了什麼傳統？", options: ["夠用就好，取用有節", "大量捕撈", "崇拜飛魚", "觀光活動"], answer: "夠用就好，取用有節" });
             q.push({ id: id++, category: "知識拓展", question: "「大自然不會欺騙我們，欺騙我們的往往是我們自己」是誰的名言？", options: ["盧梭", "黑格爾", "西塞羅", "亞里士多德"], answer: "盧梭" });
+            q.push({ id: id++, category: "知識拓展", question: "「一切順乎自然的東西都是美好的」是誰的名言？", options: ["西塞羅", "盧梭", "黑格爾", "阿加西斯"], answer: "西塞羅" });
+            q.push({ id: id++, category: "知識拓展", question: "「研究自然是與名師交往，切不可輕視自然」是誰的名言？", options: ["阿加西斯", "亞里士多德", "盧梭", "西塞羅"], answer: "阿加西斯" });
+            q.push({ id: id++, category: "知識拓展", question: "「當人類歡呼對自然的勝利之時，也就是自然對人類懲罰的開始」是誰的名言？", options: ["黑格爾", "盧梭", "西塞羅", "亞里士多德"], answer: "黑格爾" });
+            q.push({ id: id++, category: "知識拓展", question: "「大自然的每一個領域都是美妙絕倫的」是誰的名言？", options: ["亞里士多德", "黑格爾", "盧梭", "西塞羅"], answer: "亞里士多德" });
+            q.push({ id: id++, category: "知識拓展", question: "課文結構中，「前言」主要描寫什麼？", options: ["靜夜裡感受自然的美好", "水源地的故事", "父親的教導", "獵人的夢"], answer: "靜夜裡感受自然的美好" });
+            q.push({ id: id++, category: "知識拓展", question: "課文結構中，找尋水源的「起因」是？", options: ["作者到達不起眼的水源地", "父親想喝水", "部落缺水", "獵人迷路"], answer: "作者到達不起眼的水源地" });
+            q.push({ id: id++, category: "知識拓展", question: "課文結構中，老獵人透過什麼找到水源？", options: ["夢境", "地圖", "羅盤", "動物指引"], answer: "夢境" });
+            q.push({ id: id++, category: "知識拓展", question: "老獵人的故事傳達了什麼態度？", options: ["夠用就好", "多多益善", "人定勝天", "聽天由命"], answer: "夠用就好" });
+            q.push({ id: id++, category: "知識拓展", question: "課文結構中，作者從故事中體會到什麼？", options: ["老獵人對水的珍惜", "打獵的技巧", "做夢的重要", "水源的危險"], answer: "老獵人對水的珍惜" });
+            q.push({ id: id++, category: "知識拓展", question: "課文結語中，作者感受到族人的什麼精神？", options: ["敬天惜物，知足感恩", "勇猛好戰", "消極悲觀", "追求財富"], answer: "敬天惜物，知足感恩" });
+
+            // 隨機打亂選項 (Fisher-Yates Shuffle)
+            const shuffleArray = (array) => {
+                for (let i = array.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [array[i], array[j]] = [array[j], array[i]];
+                }
+                return array;
+            };
+
+            // 對每一題的選項進行洗牌
+            q.forEach(item => {
+                item.options = shuffleArray(item.options);
+            });
 
             return q;
         };
