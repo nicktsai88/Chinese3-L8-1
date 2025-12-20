@@ -79,7 +79,7 @@
             BookOpen, PenTool, History, Heart, AlertCircle, CheckCircle, XCircle, 
             ChevronRight, LogOut, User, ArrowLeft, Zap, Volume2, Home, LayoutGrid, 
             Layers, ChevronDown, ChevronUp, Loader2, Sparkles, Image as ImageIcon, Download, ImageOff,
-            Gavel, Scale, FileText, List, Leaf, Droplets, Tent, Mountain, PlayCircle, FastForward
+            Gavel, Scale, FileText, List, Leaf, Droplets, Tent, Mountain, PlayCircle, FastForward, RotateCcw
         } from 'lucide-react';
 
         // --- API Key Configuration ---
@@ -149,7 +149,9 @@
             USER: 'Chinese3-L8-1_user', 
             HISTORY: 'Chinese3-L8-1_history',
             MISTAKES: 'Chinese3-L8-1_mistakes',
-            FAVORITES: 'Chinese3-L8-1_favorites'
+            FAVORITES: 'Chinese3-L8-1_favorites',
+            QUIZ_PROGRESS_FULL: 'Chinese3-L8-1_quiz_progress_full', // New: for Full Quiz
+            QUIZ_PROGRESS_QUICK: 'Chinese3-L8-1_quiz_progress_quick' // New: for Quick Quiz
         };
 
         const LocalDB = {
@@ -212,6 +214,17 @@
                 const favs = LocalDB.getFavorites();
                 favs.delete(id.toString());
                 localStorage.setItem(STORAGE_KEYS.FAVORITES, JSON.stringify(Array.from(favs)));
+            },
+            // --- Quiz Progress Methods ---
+            saveProgress: (key, data) => {
+                localStorage.setItem(key, JSON.stringify(data));
+            },
+            getProgress: (key) => {
+                const data = localStorage.getItem(key);
+                return data ? JSON.parse(data) : null;
+            },
+            clearProgress: (key) => {
+                localStorage.removeItem(key);
             }
         };
         
@@ -338,7 +351,7 @@
             q.push({ id: id++, category: "注釋", question: "「別開蹊徑」的意思是？", options: ["另闢途徑，不與別人相同", "迷路了", "走路很快", "開闢新路"], answer: "另闢途徑，不與別人相同" });
             q.push({ id: id++, category: "注釋", question: "「飲水思源」比喻什麼？", options: ["不忘本", "口渴要喝水", "尋找水源", "節約用水"], answer: "不忘本" });
             q.push({ id: id++, category: "注釋", question: "「滴水穿石」比喻？", options: ["有志者事竟成", "水力很大", "石頭很硬", "下雨天"], answer: "有志者事竟成" });
-            q.push({ id: id++, category: "注釋", question: "「不告而別」的意思？", options: ["沒有先行道別就離去", "忘記說話", "生氣離開", "大聲告別"], answer: "沒有先行道別就離去" });
+            q.push({ id: id++, category: "注釋", question: "「不告而別」的意思是？", options: ["沒有先行道別就離去", "忘記說話", "生氣離開", "大聲告別"], answer: "沒有先行道別就離去" });
             q.push({ id: id++, category: "注釋", question: "「佇立」的意思是？", options: ["久立", "馬上離開", "坐下休息", "奔跑"], answer: "久立" });
             q.push({ id: id++, category: "注釋", question: "「歸屬感」是指？", options: ["心中有所依歸的感覺", "想要回家的感覺", "屬於別人的東西", "失敗的感覺"], answer: "心中有所依歸的感覺" });
             q.push({ id: id++, category: "注釋", question: "「改過遷善」的意思是？", options: ["改正過失，誠心向善", "搬家到好地方", "改變善良的本性", "原諒別人的過錯"], answer: "改正過失，誠心向善" });
@@ -864,18 +877,43 @@
             const [isAnswered, setIsAnswered] = useState(false);
             const [showConfetti, setShowConfetti] = useState(false);
             const [isSubmitting, setIsSubmitting] = useState(false);
+            const [hasSavedSession, setHasSavedSession] = useState(false);
+
+            // Init Check for Saved Session
+            useEffect(() => {
+                const saved = LocalDB.getProgress(STORAGE_KEYS.QUIZ_PROGRESS_FULL);
+                if (saved && saved.questions && saved.questions.length > 0) {
+                    setHasSavedSession(true);
+                }
+            }, []);
+
+            // Auto-save when state changes (if a quiz is active)
+            useEffect(() => {
+                if (selectedCategory && questions.length > 0) {
+                    LocalDB.saveProgress(STORAGE_KEYS.QUIZ_PROGRESS_FULL, {
+                        selectedCategory,
+                        questions,
+                        currentQuestionIndex,
+                        answers
+                    });
+                }
+            }, [selectedCategory, questions, currentQuestionIndex, answers]);
 
             useEffect(() => {
                 if (!selectedCategory) return;
-                let filtered = [...ALL_QUESTIONS];
-                if (selectedCategory !== 'all') {
-                    filtered = filtered.filter(q => q.category === selectedCategory);
+                
+                // Only load new questions if we aren't resuming (resuming sets state directly)
+                if (questions.length === 0) {
+                    let filtered = [...ALL_QUESTIONS];
+                    if (selectedCategory !== 'all') {
+                        filtered = filtered.filter(q => q.category === selectedCategory);
+                    }
+                    filtered = filtered.sort(() => 0.5 - Math.random());
+                    setQuestions(filtered);
+                    setCurrentQuestionIndex(0);
+                    setAnswers({});
+                    setIsAnswered(false);
                 }
-                filtered = filtered.sort(() => 0.5 - Math.random());
-                setQuestions(filtered);
-                setCurrentQuestionIndex(0);
-                setAnswers({});
-                setIsAnswered(false);
             }, [selectedCategory]);
 
             useEffect(() => {
@@ -883,6 +921,21 @@
                 const intSet = new Set(Array.from(favSet).map(id => parseInt(id)));
                 setFavorites(intSet);
             }, []);
+
+            const handleResume = () => {
+                const saved = LocalDB.getProgress(STORAGE_KEYS.QUIZ_PROGRESS_FULL);
+                if (saved) {
+                    setQuestions(saved.questions);
+                    setAnswers(saved.answers);
+                    setCurrentQuestionIndex(saved.currentQuestionIndex);
+                    setSelectedCategory(saved.selectedCategory);
+                    
+                    // Determine if current question is already answered
+                    if (saved.answers[saved.questions[saved.currentQuestionIndex].id]) {
+                        setIsAnswered(true);
+                    }
+                }
+            };
 
             const toggleFavorite = (qId) => {
                 const newFavs = LocalDB.toggleFavorite(qId);
@@ -942,6 +995,9 @@
                         }
                     }
 
+                    // Clear progress on completion
+                    LocalDB.clearProgress(STORAGE_KEYS.QUIZ_PROGRESS_FULL);
+
                     onComplete({ score: Math.round((score / questions.length) * 100), details });
                 } catch (error) {
                     console.error(error);
@@ -961,8 +1017,35 @@
                 ];
                 return (
                     <div className="h-full flex flex-col bg-stone-50">
-                        <div className="bg-white shadow-sm border-b px-4 py-3 flex items-center sticky top-0 z-10"><button onClick={onBack} className="flex items-center text-stone-600 hover:text-cyan-600 mr-4"><ArrowLeft className="w-5 h-5 mr-1" /> 返回</button><h2 className="font-bold text-lg text-stone-800">選擇測驗單元</h2></div>
-                        <div className="p-6 overflow-y-auto"><div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">{categories.map(cat => (<button key={cat.id} onClick={() => setSelectedCategory(cat.id)} className={`text-left p-6 rounded-2xl shadow-sm border-2 transition hover:shadow-md flex items-start ${cat.isAll ? 'bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200 hover:border-yellow-400' : 'bg-white border-stone-100 hover:border-cyan-200'}`}><div className={`p-3 rounded-full mr-4 ${cat.isAll ? 'bg-white shadow-sm' : 'bg-stone-50'}`}>{cat.icon}</div><div><h3 className={`font-bold text-lg mb-1 ${cat.isAll ? 'text-yellow-800' : 'text-stone-800'}`}>{cat.label}</h3><p className="text-sm text-stone-500">{cat.desc}</p></div></button>))}</div></div>
+                        <div className="bg-white shadow-sm border-b px-4 py-3 flex items-center sticky top-0 z-10">
+                            <button onClick={onBack} className="flex items-center text-stone-600 hover:text-cyan-600 mr-4">
+                                <ArrowLeft className="w-5 h-5 mr-1" /> 返回
+                            </button>
+                            <h2 className="font-bold text-lg text-stone-800">選擇測驗單元</h2>
+                        </div>
+                        
+                        <div className="p-6 overflow-y-auto">
+                            {hasSavedSession && (
+                                <div className="max-w-4xl mx-auto mb-6">
+                                    <button onClick={handleResume} className="w-full bg-stone-800 text-white p-4 rounded-xl shadow-lg hover:bg-stone-700 transition flex items-center justify-center animate-pulse">
+                                        <RotateCcw className="w-5 h-5 mr-2 text-emerald-400" />
+                                        <span className="font-bold text-lg">繼續上次未完成的測驗</span>
+                                    </button>
+                                </div>
+                            )}
+                            
+                            <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {categories.map(cat => (
+                                    <button key={cat.id} onClick={() => setSelectedCategory(cat.id)} className={`text-left p-6 rounded-2xl shadow-sm border-2 transition hover:shadow-md flex items-start ${cat.isAll ? 'bg-gradient-to-br from-yellow-50 to-orange-50 border-yellow-200 hover:border-yellow-400' : 'bg-white border-stone-100 hover:border-cyan-200'}`}>
+                                        <div className={`p-3 rounded-full mr-4 ${cat.isAll ? 'bg-white shadow-sm' : 'bg-stone-50'}`}>{cat.icon}</div>
+                                        <div>
+                                            <h3 className={`font-bold text-lg mb-1 ${cat.isAll ? 'text-yellow-800' : 'text-stone-800'}`}>{cat.label}</h3>
+                                            <p className="text-sm text-stone-500">{cat.desc}</p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 );
             }
@@ -1008,16 +1091,56 @@
             const [favorites, setFavorites] = useState(new Set());
             const [showConfetti, setShowConfetti] = useState(false);
             const [isSubmitting, setIsSubmitting] = useState(false);
+            const [showResumeDialog, setShowResumeDialog] = useState(false);
             const scrollRef = useRef(null);
 
             useEffect(() => {
-                // Shuffle all questions
-                const shuffled = [...ALL_QUESTIONS].sort(() => 0.5 - Math.random());
-                setQuestions(shuffled);
+                const initQuiz = () => {
+                    const saved = LocalDB.getProgress(STORAGE_KEYS.QUIZ_PROGRESS_QUICK);
+                    if (saved && saved.questions && saved.questions.length > 0) {
+                        setShowResumeDialog(true);
+                        // Store temp data to state just in case, but rely on dialog choice
+                        return;
+                    } 
+                    startNewQuiz();
+                };
+                
+                // Initialize Favorites
                 const favSet = LocalDB.getFavorites();
                 const intSet = new Set(Array.from(favSet).map(id => parseInt(id)));
                 setFavorites(intSet);
+
+                initQuiz();
             }, []);
+
+            // Save progress whenever answers change
+            useEffect(() => {
+                if (questions.length > 0 && Object.keys(answers).length > 0) {
+                    LocalDB.saveProgress(STORAGE_KEYS.QUIZ_PROGRESS_QUICK, {
+                        questions, // Must save order
+                        answers,
+                        score
+                    });
+                }
+            }, [answers, score, questions]);
+
+            const startNewQuiz = () => {
+                const shuffled = [...ALL_QUESTIONS].sort(() => 0.5 - Math.random());
+                setQuestions(shuffled);
+                setAnswers({});
+                setScore(0);
+                LocalDB.clearProgress(STORAGE_KEYS.QUIZ_PROGRESS_QUICK);
+            };
+
+            const resumeQuiz = () => {
+                const saved = LocalDB.getProgress(STORAGE_KEYS.QUIZ_PROGRESS_QUICK);
+                if (saved) {
+                    setQuestions(saved.questions);
+                    setAnswers(saved.answers);
+                    setScore(saved.score);
+                }
+                setShowResumeDialog(false);
+            };
 
             const toggleFavorite = (qId) => {
                 const newFavs = LocalDB.toggleFavorite(qId);
@@ -1063,21 +1186,43 @@
 
                 if (details.length > 0) {
                      LocalDB.addHistory({
-                        score: Math.round((score / questions.length) * 100), // Adjusted to total questions or answered? Usually total.
-                        total: questions.length, // Or details.length if partial? Let's use total questions for context.
+                        score: Math.round((score / questions.length) * 100), 
+                        total: questions.length, 
                         category: '快速測驗 (列表)',
                         details: details
                     });
                 }
                 
-                // Navigate back or to result? Let's go to result for a summary.
-                // But since it's "quick mode", maybe just going back is fine or showing a simple summary alert?
-                // The prompt says "Generate a long list". Let's show a summary.
+                // Clear saved progress
+                LocalDB.clearProgress(STORAGE_KEYS.QUIZ_PROGRESS_QUICK);
+
                 onComplete({ 
                     score: Math.round((score / questions.length) * 100), 
-                    details: details.length > 0 ? details : [] // Handle case where nothing answered
+                    details: details.length > 0 ? details : [] 
                 });
             };
+
+            if (showResumeDialog) {
+                return (
+                    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl animate-fade-in text-center">
+                            <div className="bg-amber-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <History className="w-8 h-8 text-amber-600" />
+                            </div>
+                            <h3 className="text-xl font-bold text-stone-800 mb-2">發現未完成的測驗</h3>
+                            <p className="text-stone-500 mb-6">您上次還有未完成的快速測驗進度，是否要繼續？</p>
+                            <div className="flex gap-3">
+                                <button onClick={() => { setShowResumeDialog(false); startNewQuiz(); }} className="flex-1 py-3 border-2 border-stone-200 text-stone-600 rounded-xl font-bold hover:bg-stone-50 transition">
+                                    重新開始
+                                </button>
+                                <button onClick={resumeQuiz} className="flex-1 py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition shadow-lg shadow-amber-200">
+                                    繼續測驗
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
 
             if (questions.length === 0) return <LoadingScreen />;
 
