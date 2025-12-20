@@ -79,7 +79,7 @@
             BookOpen, PenTool, History, Heart, AlertCircle, CheckCircle, XCircle, 
             ChevronRight, LogOut, User, ArrowLeft, Zap, Volume2, Home, LayoutGrid, 
             Layers, ChevronDown, ChevronUp, Loader2, Sparkles, Image as ImageIcon, Download, ImageOff,
-            Gavel, Scale, FileText, List, Leaf, Droplets, Tent, Mountain
+            Gavel, Scale, FileText, List, Leaf, Droplets, Tent, Mountain, PlayCircle, FastForward
         } from 'lucide-react';
 
         // --- API Key Configuration ---
@@ -569,21 +569,35 @@
                     </header>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <button onClick={() => onNavigate('learn')} className="bg-white p-6 rounded-2xl shadow-md hover:shadow-lg transition group border-l-4 border-cyan-500 text-left">
+                        <button onClick={() => onNavigate('learn')} className="bg-white p-6 rounded-2xl shadow-md hover:shadow-lg transition group border-l-4 border-cyan-500 text-left col-span-1 md:col-span-2">
                             <div className="flex items-center space-x-4 mb-2">
                                 <div className="bg-cyan-100 p-3 rounded-full group-hover:bg-cyan-200 transition"><BookOpen className="w-8 h-8 text-cyan-600" /></div>
                                 <h2 className="text-xl font-bold text-stone-800">進入學習介面</h2>
                             </div>
                             <p className="text-stone-500 pl-16">瀏覽注釋、形音義、成語典故與知識拓展。</p>
                         </button>
-
-                        <button onClick={() => onNavigate('quiz_setup')} className="bg-white p-6 rounded-2xl shadow-md hover:shadow-lg transition group border-l-4 border-emerald-500 text-left">
-                            <div className="flex items-center space-x-4 mb-2">
-                                <div className="bg-emerald-100 p-3 rounded-full group-hover:bg-emerald-200 transition"><PenTool className="w-8 h-8 text-emerald-600" /></div>
-                                <h2 className="text-xl font-bold text-stone-800">開始測驗</h2>
+                        
+                        {/* 測驗區塊 */}
+                        <div className="col-span-1 md:col-span-2 bg-stone-50 border-2 border-dashed border-stone-200 rounded-2xl p-4">
+                            <h3 className="text-lg font-bold text-stone-600 mb-3 flex items-center"><Scale className="w-5 h-5 mr-2" /> 測驗挑戰區</h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <button onClick={() => onNavigate('quiz_setup')} className="bg-white p-5 rounded-xl shadow-sm hover:shadow-md transition group border-l-4 border-emerald-500 text-left">
+                                    <div className="flex items-center space-x-3 mb-1">
+                                        <div className="bg-emerald-100 p-2 rounded-full group-hover:bg-emerald-200 transition"><PenTool className="w-6 h-6 text-emerald-600" /></div>
+                                        <h2 className="text-lg font-bold text-stone-800">一般測驗</h2>
+                                    </div>
+                                    <p className="text-sm text-stone-500 pl-12">逐題作答，適合詳細練習。</p>
+                                </button>
+                                
+                                <button onClick={() => onNavigate('quick_quiz')} className="bg-white p-5 rounded-xl shadow-sm hover:shadow-md transition group border-l-4 border-amber-500 text-left">
+                                    <div className="flex items-center space-x-3 mb-1">
+                                        <div className="bg-amber-100 p-2 rounded-full group-hover:bg-amber-200 transition"><FastForward className="w-6 h-6 text-amber-600" /></div>
+                                        <h2 className="text-lg font-bold text-stone-800">快速測驗</h2>
+                                    </div>
+                                    <p className="text-sm text-stone-500 pl-12">列表模式，即時回饋刷題。</p>
+                                </button>
                             </div>
-                            <p className="text-stone-500 pl-16">挑戰全方位題庫，鞏固學習成果。</p>
-                        </button>
+                        </div>
                     </div>
 
                     <div className="grid grid-cols-3 gap-4 mt-8">
@@ -646,7 +660,6 @@
                             <div className="w-4"></div>
                             <h2 className="font-bold text-lg text-stone-800 hidden md:block">學習重點</h2>
                         </div>
-                        {/* Download button removed as it was for AI generated images */}
                     </div>
                     
                     <div className="flex overflow-x-auto bg-stone-50 px-2 py-2 gap-2 sticky top-14 z-10 border-b">
@@ -988,6 +1001,180 @@
             );
         };
 
+        const QuickQuizModule = ({ onBack, onComplete }) => {
+            const [questions, setQuestions] = useState([]);
+            const [answers, setAnswers] = useState({});
+            const [score, setScore] = useState(0);
+            const [favorites, setFavorites] = useState(new Set());
+            const [showConfetti, setShowConfetti] = useState(false);
+            const [isSubmitting, setIsSubmitting] = useState(false);
+            const scrollRef = useRef(null);
+
+            useEffect(() => {
+                // Shuffle all questions
+                const shuffled = [...ALL_QUESTIONS].sort(() => 0.5 - Math.random());
+                setQuestions(shuffled);
+                const favSet = LocalDB.getFavorites();
+                const intSet = new Set(Array.from(favSet).map(id => parseInt(id)));
+                setFavorites(intSet);
+            }, []);
+
+            const toggleFavorite = (qId) => {
+                const newFavs = LocalDB.toggleFavorite(qId);
+                const intSet = new Set(Array.from(newFavs).map(id => parseInt(id)));
+                setFavorites(intSet);
+            };
+
+            const handleAnswer = (qId, option, correctAns, category, questionText) => {
+                if (answers[qId]) return; // Already answered
+
+                const isCorrect = option === correctAns;
+                setAnswers(prev => ({ ...prev, [qId]: option }));
+                
+                if (isCorrect) {
+                    playSound('correct');
+                    setScore(prev => prev + 1);
+                } else {
+                    playSound('incorrect');
+                    // Immediate Mistake Recording
+                    LocalDB.addMistake({
+                        id: qId,
+                        question: questionText,
+                        answer: correctAns,
+                        category: category
+                    });
+                }
+            };
+
+            const handleFinish = () => {
+                if (isSubmitting) return;
+                setIsSubmitting(true);
+                
+                // Calculate detailed results for history
+                const details = questions.filter(q => answers[q.id]).map(q => ({
+                    id: q.id,
+                    question: q.question,
+                    userAnswer: answers[q.id],
+                    correctAnswer: q.answer,
+                    isCorrect: answers[q.id] === q.answer,
+                    options: q.options,
+                    category: q.category
+                }));
+
+                if (details.length > 0) {
+                     LocalDB.addHistory({
+                        score: Math.round((score / questions.length) * 100), // Adjusted to total questions or answered? Usually total.
+                        total: questions.length, // Or details.length if partial? Let's use total questions for context.
+                        category: '快速測驗 (列表)',
+                        details: details
+                    });
+                }
+                
+                // Navigate back or to result? Let's go to result for a summary.
+                // But since it's "quick mode", maybe just going back is fine or showing a simple summary alert?
+                // The prompt says "Generate a long list". Let's show a summary.
+                onComplete({ 
+                    score: Math.round((score / questions.length) * 100), 
+                    details: details.length > 0 ? details : [] // Handle case where nothing answered
+                });
+            };
+
+            if (questions.length === 0) return <LoadingScreen />;
+
+            return (
+                <div className="h-full flex flex-col bg-stone-100">
+                    {/* Header */}
+                    <div className="bg-white shadow-md border-b px-4 py-3 flex items-center justify-between sticky top-0 z-20">
+                         <div className="flex items-center">
+                            <button onClick={onBack} className="flex items-center text-stone-600 hover:text-cyan-600 mr-4">
+                                <ArrowLeft className="w-5 h-5 mr-1" /> 返回
+                            </button>
+                            <h2 className="font-bold text-lg text-amber-600 flex items-center"><FastForward className="w-5 h-5 mr-2" /> 快速測驗模式</h2>
+                        </div>
+                        <div className="bg-stone-800 text-white px-4 py-1.5 rounded-full font-mono font-bold shadow-inner flex items-center">
+                            <span className="text-emerald-400 mr-2">答對: {score}</span> <span className="text-stone-500 text-xs mx-1">/</span> <span className="text-stone-300">總題數: {questions.length}</span>
+                        </div>
+                    </div>
+
+                    {/* Question List */}
+                    <div className="flex-1 overflow-y-auto p-4 md:p-6" ref={scrollRef}>
+                        <div className="max-w-3xl mx-auto space-y-6">
+                            {questions.map((q, index) => {
+                                const userAnswer = answers[q.id];
+                                const isAnswered = !!userAnswer;
+                                const isCorrect = userAnswer === q.answer;
+                                
+                                return (
+                                    <div key={q.id} className={`bg-white rounded-xl shadow-sm border-l-4 p-5 transition-all ${isAnswered ? (isCorrect ? 'border-emerald-500 bg-emerald-50/30' : 'border-red-500 bg-red-50/30') : 'border-stone-200 hover:border-amber-300'}`}>
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="flex items-center">
+                                                <span className="bg-stone-100 text-stone-500 text-xs font-bold px-2 py-1 rounded mr-2">#{index + 1}</span>
+                                                <span className="bg-cyan-50 text-cyan-700 text-xs font-bold px-2 py-1 rounded">{q.category}</span>
+                                            </div>
+                                            <button onClick={() => toggleFavorite(q.id)} className="text-stone-300 hover:text-rose-500 transition">
+                                                 <Heart className={`w-5 h-5 ${favorites.has(q.id) ? 'fill-rose-500 text-rose-500' : ''}`} />
+                                            </button>
+                                        </div>
+
+                                        <h3 className="text-lg font-bold text-stone-800 mb-4">{q.question}</h3>
+
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            {q.options.map((opt, i) => {
+                                                let btnClass = "border-stone-200 text-stone-600 hover:bg-stone-50";
+                                                let icon = null;
+
+                                                if (isAnswered) {
+                                                    if (opt === q.answer) {
+                                                        btnClass = "border-emerald-500 bg-emerald-100 text-emerald-800 font-bold ring-2 ring-emerald-200";
+                                                        icon = <CheckCircle className="w-5 h-5 ml-auto text-emerald-600" />;
+                                                    } else if (opt === userAnswer) { // Wrong answer selected
+                                                        btnClass = "border-red-500 bg-red-100 text-red-800 font-bold";
+                                                        icon = <XCircle className="w-5 h-5 ml-auto text-red-600" />;
+                                                    } else {
+                                                        btnClass = "border-stone-100 text-stone-400 opacity-50";
+                                                    }
+                                                }
+
+                                                return (
+                                                    <button 
+                                                        key={i} 
+                                                        onClick={() => handleAnswer(q.id, opt, q.answer, q.category, q.question)}
+                                                        disabled={isAnswered}
+                                                        className={`text-left px-4 py-3 rounded-lg border-2 transition flex items-center ${btnClass}`}
+                                                    >
+                                                        <span className="font-mono mr-2 opacity-50">{String.fromCharCode(65 + i)}.</span>
+                                                        <span className="flex-1">{opt}</span>
+                                                        {icon}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        
+                                        {/* Feedback Text */}
+                                        {isAnswered && !isCorrect && (
+                                            <div className="mt-3 text-sm text-red-600 font-bold flex items-center animate-fade-in">
+                                                <AlertCircle className="w-4 h-4 mr-1" /> 答錯了！正確答案是：{q.answer} (已加入錯題本)
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        
+                        {/* Finish Button Area */}
+                        <div className="max-w-3xl mx-auto mt-8 mb-10">
+                            <button 
+                                onClick={handleFinish} 
+                                className="w-full bg-stone-800 text-white py-4 rounded-xl font-bold shadow-lg hover:bg-stone-700 transition flex items-center justify-center text-lg"
+                            >
+                                <CheckCircle className="w-6 h-6 mr-2 text-emerald-400" /> 結束測驗並查看結果
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         const ResultReview = ({ result, onExit }) => {
             return (
                 <div className="h-full bg-stone-50 overflow-y-auto">
@@ -1008,6 +1195,7 @@
 
                         <h3 className="text-xl font-bold text-stone-800 mb-4 px-2">試題解析</h3>
                         <div className="space-y-4">
+                            {result.details.length === 0 ? <p className="text-center text-stone-500 py-4">本次測驗未作答任何題目。</p> : null}
                             {result.details.map((item, i) => (
                                 <div key={i} className={`bg-white rounded-xl shadow-sm p-6 border-l-4 ${item.isCorrect ? 'border-emerald-500' : 'border-red-500'}`}>
                                     <div className="flex items-start justify-between mb-3">
@@ -1256,6 +1444,9 @@
             if (view === 'learn') return <LearningModule onBack={() => setView('dashboard')} />;
             if (view === 'quiz_setup') {
                 return <FullQuizModule user={user} onBack={() => setView('dashboard')} onComplete={(res) => { setQuizResult(res); setView('quiz_result'); }} />;
+            }
+            if (view === 'quick_quiz') {
+                 return <QuickQuizModule onBack={() => setView('dashboard')} onComplete={(res) => { setQuizResult(res); setView('quiz_result'); }} />;
             }
             if (view === 'quiz_result') return <ResultReview result={quizResult} onExit={() => setView('dashboard')} />;
             if (view === 'history') return <ListView title="測驗歷史紀錄" type="history" user={user} onBack={() => setView('dashboard')} />;
