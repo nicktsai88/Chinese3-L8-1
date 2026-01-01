@@ -79,9 +79,70 @@
             BookOpen, PenTool, History, Heart, AlertCircle, CheckCircle, XCircle, 
             ChevronRight, LogOut, User, ArrowLeft, Zap, Volume2, Home, LayoutGrid, 
             Layers, ChevronDown, ChevronUp, Loader2, Sparkles, Image as ImageIcon, Download, ImageOff,
-            Gavel, Scale, FileText, List, Leaf, Droplets, Tent, Mountain, PlayCircle, FastForward, RotateCcw,
-            Trash2
+            Gavel, Scale, FileText, List, Leaf, Droplets, Tent, Mountain, PlayCircle, FastForward, RotateCcw
         } from 'lucide-react';
+
+        // --- API Key Configuration ---
+        const apiKey = ""; 
+
+        // --- Helper: Convert PNG Data URL to JPG Data URL ---
+        const convertPngToJpg = (pngDataUrl) => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                    const jpgDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                    resolve(jpgDataUrl);
+                };
+                img.onerror = reject;
+                img.src = pngDataUrl;
+            });
+        };
+
+        // --- API Helper for Image Generation ---
+        const generateAIImage = async (prompt) => {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
+            // 更新 Prompt 風格以符合自然與原住民文化主題
+            const enhancedPrompt = prompt + ", masterpiece, best quality, nature photography style, aboriginal culture atmosphere, realistic texture, cinematic lighting, detailed background";
+
+            const payload = {
+                instances: [ { prompt: enhancedPrompt } ],
+                parameters: { sampleCount: 1, aspectRatio: "4:3" }
+            };
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API call failed: ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                const base64Image = result.predictions?.[0]?.bytesBase64Encoded;
+                
+                if (base64Image) {
+                    const pngDataUrl = `data:image/png;base64,${base64Image}`;
+                    const jpgDataUrl = await convertPngToJpg(pngDataUrl);
+                    return jpgDataUrl;
+                } else {
+                    throw new Error("No image data in response");
+                }
+            } catch (error) {
+                console.error("Image generation error:", error);
+                alert("圖片生成失敗，請稍後再試。");
+                return null;
+            }
+        };
 
         // --- LocalStorage Database Helper ---
         const STORAGE_KEYS = {
@@ -168,36 +229,36 @@
         };
         
         // --- Global Data Definitions (Lesson 8 Content) ---
-        // 移除了 prompt 和 image 屬性，保持純文字內容
         const STUDY_CONTENT = {
             intro: {
                 title: "課文注釋與賞析",
                 items: [
-                    { term: "1. 律動", definition: "有規律、節奏的運動或變動。" },
-                    { term: "2. 節奏", definition: "比喻有規律的進程。" },
-                    { term: "3. 合眼", definition: "亦作「闔眼」。" },
-                    { term: "4. 佇立", definition: "久立。" },
-                    { term: "5. 歸屬感", definition: "心中有所依歸的感覺。" },
-                    { term: "7. 小「徑」", definition: "●別開蹊徑：另闢途徑，不與別人相同。" },
-                    { term: "8. 水「源」", definition: "●飲水思源：比喻不忘本。 ●探本溯源：比喻探求、追溯事物的根本。" },
-                    { term: "9. 水「滴」", definition: "●滴水不漏：指周密細緻，無一疏漏。 ●滴水穿石：比喻有志者事竟成，只要努力不懈就能夠成功。" },
-                    { term: "10. 「遷」走", definition: "●改過遷善：指改正過失，誠心向善。 ●時過境遷：時間流走，境況也隨之改變。" },
-                    { term: "11. 挖掘", definition: "鑿取。" },
-                    { term: "12. 不告而別", definition: "沒有先行道別就離去。" },
-                    { term: "13. 土表", definition: "泥土的表面。" },
-                    { term: "14. 恩典", definition: "恩惠。" },
-                    { term: "15. 「弓」著身", definition: "彎曲。" },
-                    { term: "16. 「瀉」滿", definition: "水向下急流。" },
-                    { term: "賞析：生活哲學", definition: "面對和處理生活事務的想法與作法的智慧。" },
-                    { term: "賞析：風貌", definition: "事物的形貌、格調。" },
-                    { term: "賞析：永續", definition: "長久而持續。" },
-                    { term: "賞析：掠奪", definition: "搶奪、奪取。" },
-                    { term: "賞析：借鑑", definition: "以他人的言行作為自己的警惕。" }
+                    { term: "1. 律動", definition: "有規律、節奏的運動或變動。", prompt: "Rhythmic movement of nature, wind blowing through grass" },
+                    { term: "2. 節奏", definition: "比喻有規律的進程。", prompt: "Musical rhythm visualization, abstract waves" },
+                    { term: "3. 合眼", definition: "亦作「闔眼」。", prompt: "A person closing their eyes peacefully" },
+                    { term: "4. 佇立", definition: "久立。", prompt: "A person standing still for a long time in a forest" },
+                    { term: "5. 歸屬感", definition: "心中有所依歸的感覺。", prompt: "A warm feeling of belonging, family hugging" },
+                    { term: "7. 小「徑」", definition: "●別開蹊徑：另闢途徑，不與別人相同。", prompt: "A small path in the woods diverging from the main road" },
+                    { term: "8. 水「源」", definition: "●飲水思源：比喻不忘本。 ●探本溯源：比喻探求、追溯事物的根本。", prompt: "A clear spring water source in the mountains" },
+                    { term: "9. 水「滴」", definition: "●滴水不漏：指周密細緻，無一疏漏。 ●滴水穿石：比喻有志者事竟成，只要努力不懈就能夠成功。", prompt: "Water droplet falling on a taro leaf" },
+                    { term: "10. 「遷」走", definition: "●改過遷善：指改正過失，誠心向善。 ●時過境遷：時間流走，境況也隨之改變。", prompt: "People moving their village to a new location" },
+                    { term: "11. 挖掘", definition: "鑿取。", prompt: "Digging soil with tools" },
+                    { term: "12. 不告而別", definition: "沒有先行道別就離去。", prompt: "A person leaving quietly without saying goodbye" },
+                    { term: "13. 土表", definition: "泥土的表面。", prompt: "Surface of the soil with small plants" },
+                    { term: "14. 恩典", definition: "恩惠。", prompt: "Sunlight shining through clouds, symbolizing grace" },
+                    { term: "15. 「弓」著身", definition: "彎曲。", prompt: "A person bowing or arching their back" },
+                    { term: "16. 「瀉」滿", definition: "水向下急流。", prompt: "Water pouring down rapidly" },
+                    { term: "賞析：生活哲學", definition: "面對和處理生活事務的想法與作法的智慧。", prompt: "Wise old man thinking about life" },
+                    { term: "賞析：風貌", definition: "事物的形貌、格調。", prompt: "Landscape scenery" },
+                    { term: "賞析：永續", definition: "長久而持續。", prompt: "Sustainable nature cycle, green infinity symbol" },
+                    { term: "賞析：掠奪", definition: "搶奪、奪取。", prompt: "Hands grabbing resources greedily" },
+                    { term: "賞析：借鑑", definition: "以他人的言行作為自己的警惕。", prompt: "Looking into a mirror for reflection" }
                 ],
                 special_item: {
                     term: "17. 獵寮",
                     definition: "獵人狩獵休息的地方。",
-                    long_desc: "搭建的材料通常就地取用當地的植物，如樹枝或竹管做為骨架，屋頂則用茅草或芭蕉葉，地面也可以鋪芭蕉葉。傳統上，搭蓋骨架要用蘆和藤綁，不能用鐵絲，若是採用帆布或塑膠布，則必須將蘆葦放在木頭和帆布之間。\n\n獵寮最好靠近有茅草(做屋頂用)、溪水、乾柴、背風、隱蔽的地方，以免獵寮飄出的煙火容易留下氣味，會使動物產生警覺，導致獵人不容易獵到動物。通常會放一些烹調用具、睡袋、薪柴、擋風的帆布及簡單日常用品等。一座獵寮通常可容納三個人，不同季節可擴建。\n\n當獵人們進入獵場，年輕的獵人們通常負責搭建獵寮和尋找晚上燒火的乾柴。年紀大的獵人則開始就地生火煮飯。如果是一人單獨出去打獵，就必須先搭建獵寮，才開始生火煮飯。\n\n獵寮通常不會搭建在獵區中心位置，一個獵區內要避免搭建太多獵寮，以免驚動動物而打不到獵物。但是獵寮太少，又對獵人不方便。通常獵寮與獵寮之間的距離，大約以四小時步行可以到達的路程最合適。"
+                    long_desc: "搭建的材料通常就地取用當地的植物，如樹枝或竹管做為骨架，屋頂則用茅草或芭蕉葉，地面也可以鋪芭蕉葉。傳統上，搭蓋骨架要用蘆和藤綁，不能用鐵絲，若是採用帆布或塑膠布，則必須將蘆葦放在木頭和帆布之間。\n\n獵寮最好靠近有茅草(做屋頂用)、溪水、乾柴、背風、隱蔽的地方，以免獵寮飄出的煙火容易留下氣味，會使動物產生警覺，導致獵人不容易獵到動物。通常會放一些烹調用具、睡袋、薪柴、擋風的帆布及簡單日常用品等。一座獵寮通常可容納三個人，不同季節可擴建。\n\n當獵人們進入獵場，年輕的獵人們通常負責搭建獵寮和尋找晚上燒火的乾柴。年紀大的獵人則開始就地生火煮飯。如果是一人單獨出去打獵，就必須先搭建獵寮，才開始生火煮飯。\n\n獵寮通常不會搭建在獵區中心位置，一個獵區內要避免搭建太多獵寮，以免驚動動物而打不到獵物。但是獵寮太少，又對獵人不方便。通常獵寮與獵寮之間的距離，大約以四小時步行可以到達的路程最合適。",
+                    prompt: "A traditional aboriginal hunter's hut in Taiwan forest, made of bamboo and leaves, hidden in nature"
                 }
             },
             shape_sound: {
@@ -226,40 +287,40 @@
             idioms: {
                 title: "成語典故",
                 hunting: [
-                    { name: "見獵心喜", mean: "比喻舊習難忘，觸其所好，便心情愉悅而躍躍欲試。", note: "程顥看到打獵，激起舊日的愛好而心喜。" },
-                    { name: "一箭雙鵰", mean: "比喻一次舉動便可達到雙倍效果，兼得兩種好處。" },
-                    { name: "放鷹逐犬", mean: "打獵。" },
-                    { name: "飛蒼走黃", mean: "指放出蒼鷹和獵犬打獵。黃，黃犬。" },
-                    { name: "飛鷹走狗", mean: "打獵。亦作「飛鷹走馬」、「飛鷹走犬」。" },
-                    { name: "見兔放鷹", mean: "比喻看準時機，及時採取行動，以獲取利益。" },
-                    { name: "兔起鶻落", mean: "比喻動作快速敏捷。後常比喻書寫作畫時下筆疾速。(鶻：行動敏捷的猛禽)" },
-                    { name: "焚林而畋", mean: "焚毀山林以獵取野獸。比喻索取一空，不留餘地。亦作「焚林而田」。(畋：狩獵)" },
-                    { name: "張羅彀弓", mean: "指準備好射獵的工作。(彀：拉滿弓)" },
-                    { name: "鳥盡弓藏", mean: "比喻天下平定之後便遺棄功臣。" },
-                    { name: "兔死狗烹", mean: "比喻事成之後，出過力的人即遭到殺戮或見棄的命運。" }
+                    { name: "見獵心喜", image: "images/p01.jpg", mean: "比喻舊習難忘，觸其所好，便心情愉悅而躍躍欲試。", note: "程顥看到打獵，激起舊日的愛好而心喜。", prompt: "A person seeing a hunting scene and feeling excited" },
+                    { name: "一箭雙鵰", image: "images/p02.jpg", mean: "比喻一次舉動便可達到雙倍效果，兼得兩種好處。", prompt: "Shooting one arrow and hitting two eagles" },
+                    { name: "放鷹逐犬", image: "images/p03.jpg", mean: "打獵。", prompt: "Releasing hawks and dogs for hunting" },
+                    { name: "飛蒼走黃", image: "images/p04.jpg", mean: "指放出蒼鷹和獵犬打獵。黃，黃犬。", prompt: "Hunting with eagles and yellow dogs" },
+                    { name: "飛鷹走狗", image: "images/p05.jpg", mean: "打獵。亦作「飛鷹走馬」、「飛鷹走犬」。", prompt: "Falconry and hunting dogs" },
+                    { name: "見兔放鷹", image: "images/p06.jpg", mean: "比喻看準時機，及時採取行動，以獲取利益。", prompt: "Releasing a hawk upon seeing a rabbit" },
+                    { name: "兔起鶻落", image: "images/p07.jpg", mean: "比喻動作快速敏捷。後常比喻書寫作畫時下筆疾速。(鶻：行動敏捷的猛禽)", prompt: "A falcon diving down fast as a rabbit jumps" },
+                    { name: "焚林而畋", image: "images/p08.jpg", mean: "焚毀山林以獵取野獸。比喻索取一空，不留餘地。亦作「焚林而田」。(畋：狩獵)", prompt: "Burning a forest to hunt animals" },
+                    { name: "張羅彀弓", image: "images/p09.jpg", mean: "指準備好射獵的工作。(彀：拉滿弓)", prompt: "Setting up nets and drawing bows fully" },
+                    { name: "鳥盡弓藏", image: "images/p10.jpg", mean: "比喻天下平定之後便遺棄功臣。", prompt: "Hiding the bow after all birds are shot" },
+                    { name: "兔死狗烹", image: "images/p11.jpg", mean: "比喻事成之後，出過力的人即遭到殺戮或見棄的命運。", prompt: "Cooking the hunting dog after rabbits are gone" }
                 ],
                 water: [
-                    { name: "鏡花水月", mean: "比喻空幻不實在。" },
-                    { name: "水到渠成", mean: "比喻事情條件完備則自然成功，不須強求。" },
-                    { name: "車水馬龍", mean: "形容車馬絡繹不絕，繁華熱鬧的景象。" },
-                    { name: "望穿秋水", mean: "形容盼望的殷切。" },
-                    { name: "杯水車薪", mean: "比喻無濟於事。" },
-                    { name: "水滴石穿", mean: "比喻持之以恆，事必有成。" }
+                    { name: "鏡花水月", image: "images/p12.jpg", mean: "比喻空幻不實在。", prompt: "Reflection of flowers in water and moon in mirror" },
+                    { name: "水到渠成", image: "images/p13.jpg", mean: "比喻事情條件完備則自然成功，不須強求。", prompt: "Water flowing to form a canal naturally" },
+                    { name: "車水馬龍", image: "images/p14.jpg", mean: "形容車馬絡繹不絕，繁華熱鬧的景象。", prompt: "Crowded street with carriages and horses like a dragon" },
+                    { name: "望穿秋水", image: "images/p15.jpg", mean: "形容盼望的殷切。", prompt: "Person looking at the horizon with longing eyes" },
+                    { name: "杯水車薪", image: "images/p16.jpg", mean: "比喻無濟於事。", prompt: "Using a cup of water to save a cartload of burning wood" },
+                    { name: "水滴石穿", image: "images/p17.jpg", mean: "比喻持之以恆，事必有成。", prompt: "Water dripping constantly wearing through a stone" }
                 ],
                 stories: [
-                    { name: "竭澤而漁", mean: "指排盡澤水捕魚。比喻取盡所有，不留餘地。", source: "語出《呂氏春秋》", story: "春秋時晉文公問咎犯如何應戰，咎犯建議詐術。雍季雖認為詐術（竭澤而漁、焚林而田）非長久之計，但文公採納咎犯建議勝戰。論功行賞時，雍季居首，因其顧及百世利益。" },
-                    { name: "殺雞取卵", mean: "比喻為貪圖眼前的好處而斷絕了長遠的利益。", source: "典出《伊索寓言》", story: "貪心的農夫殺了每天下金蛋的母雞，以為肚子裡有金塊，結果什麼都沒有，連金蛋也沒了。" }
+                    { name: "竭澤而漁", image: "images/p18.jpg", mean: "指排盡澤水捕魚。比喻取盡所有，不留餘地。", source: "語出《呂氏春秋》", story: "春秋時晉文公問咎犯如何應戰，咎犯建議詐術。雍季雖認為詐術（竭澤而漁、焚林而田）非長久之計，但文公採納咎犯建議勝戰。論功行賞時，雍季居首，因其顧及百世利益。", prompt: "Draining a pond to catch all fish" },
+                    { name: "殺雞取卵", image: "images/p19.jpg", mean: "比喻為貪圖眼前的好處而斷絕了長遠的利益。", source: "典出《伊索寓言》", story: "貪心的農夫殺了每天下金蛋的母雞，以為肚子裡有金塊，結果什麼都沒有，連金蛋也沒了。", prompt: "Farmer killing a hen that lays golden eggs" }
                 ]
             },
             knowledge: {
                 title: "知識拓展",
                 concepts: [
-                    { title: "子釣而不綱，弋不射宿", source: "論語", content: "孔子只釣魚而不用網捕魚；不射已經宿巢的鳥。比喻對自然萬物取之有時，用之有節。" },
-                    { title: "數罟不入洿池...", source: "孟子", content: "細密的魚網不放入大塘捕撈，魚鱉吃不完；按時令砍伐，木材用不盡。比喻對自然萬物取之有時，用之有節。" }
+                    { title: "子釣而不綱，弋不射宿", image: "images/p20.jpg", source: "論語", content: "孔子只釣魚而不用網捕魚；不射已經宿巢的鳥。比喻對自然萬物取之有時，用之有節。", prompt: "Confucius fishing with a rod, not a net" },
+                    { title: "數罟不入洿池...", image: "images/p21.jpg", source: "孟子", content: "細密的魚網不放入大塘捕撈，魚鱉吃不完；按時令砍伐，木材用不盡。比喻對自然萬物取之有時，用之有節。", prompt: "Ancient fishing with proper nets" }
                 ],
                 examples: [
-                    { title: "古代禁令", content: "《呂氏春秋》記載，制定春夏秋冬禁令。生物繁育期不准砍樹、燒草、捕獸、捕魚。為野生動物保護奠定基礎。" },
-                    { title: "達悟族飛魚祭", content: "飛魚汛期(2-6月)舉行祭典，6-7月舉行收藏祭，結束後不再捕捉，給予飛魚繁殖生長的時機。體現夠用就好的傳統。" }
+                    { title: "古代禁令", image: "images/p22.jpg", content: "《呂氏春秋》記載，制定春夏秋冬禁令。生物繁育期不准砍樹、燒草、捕獸、捕魚。為野生動物保護奠定基礎。", prompt: "Ancient Chinese scroll listing nature conservation laws" },
+                    { title: "達悟族飛魚祭", image: "images/p23.jpg", content: "飛魚汛期(2-6月)舉行祭典，6-7月舉行收藏祭，結束後不再捕捉，給予飛魚繁殖生長的時機。體現夠用就好的傳統。", prompt: "Tao people celebrating Flying Fish Festival with boats" }
                 ],
                 quotes: [
                     { text: "一切順乎自然的東西都是美好的。", author: "古羅馬 西塞羅" },
@@ -272,11 +333,11 @@
             structure: {
                 title: "課文結構表",
                 parts: [
-                    { section: "前言 (1-2段)", title: "感受大自然", content: "靜夜裡感受自然的美好，體悟人與自然溝通的奧祕。" },
-                    { section: "起因 (3段)", title: "水流細小的水源地", content: "作者到達不起眼的水源地，引發對相關問題的思考。" },
-                    { section: "經過 (4-5段)", title: "水源地的故事", content: "父親敘述老獵人透過夢境找到水源的故事，傳達「夠用就好」的態度。" },
-                    { section: "影響 (6-8段)", title: "從故事獲得體悟", content: "作者體會老獵人對水的珍惜，和對自然土地情感的真實。藉父子的對話道出親近土地才能感受水的香甜。" },
-                    { section: "結語 (9段)", title: "感受與感恩", content: "作者感受到族人的敬天惜物，知足感恩。" }
+                    { section: "前言 (1-2段)", image: "images/p24.jpg", title: "感受大自然", content: "靜夜裡感受自然的美好，體悟人與自然溝通的奧祕。", prompt: "Quiet night in nature, feeling the breeze" },
+                    { section: "起因 (3段)", image: "images/p25.jpg", title: "水流細小的水源地", content: "作者到達不起眼的水源地，引發對相關問題的思考。", prompt: "Small water source in the forest" },
+                    { section: "經過 (4-5段)", image: "images/p26.jpg", title: "水源地的故事", content: "父親敘述老獵人透過夢境找到水源的故事，傳達「夠用就好」的態度。", prompt: "Father telling a story about an old hunter dreaming of water" },
+                    { section: "影響 (6-8段)", image: "images/p27.jpg", title: "從故事獲得體悟", content: "作者體會老獵人對水的珍惜，和對自然土地情感的真實。藉父子的對話道出親近土地才能感受水的香甜。", prompt: "Father and son talking in the forest" },
+                    { section: "結語 (9段)", image: "images/p28.jpg", title: "感受與感恩", content: "作者感受到族人的敬天惜物，知足感恩。", prompt: "Aboriginal people praying and thanking nature" }
                 ]
             }
         };
@@ -570,6 +631,8 @@
         // --- LearningModule ---
         const LearningModule = ({ onBack }) => {
             const [activeTab, setActiveTab] = useState('intro'); 
+            const [generatedImages, setGeneratedImages] = useState({});
+            const [loadingImages, setLoadingImages] = useState({});
             
             const tabs = [
                 { id: 'intro', label: '注釋與賞析' },
@@ -578,6 +641,27 @@
                 { id: 'knowledge', label: '知識拓展' },
                 { id: 'structure', label: '課文結構' },
             ];
+
+            // Render static image if provided in item, otherwise skip image section
+            const renderImageSection = (item) => {
+                if (item.image) {
+                    return (
+                        <div className="mt-4 border-t border-dashed border-stone-200 pt-4">
+                            <div className="relative group">
+                                <img 
+                                    src={item.image} 
+                                    alt={item.name || item.title || "Illustration"} 
+                                    className="w-full h-auto rounded-lg shadow-sm object-cover"
+                                    onError={(e) => {
+                                        e.target.style.display = 'none'; // Hide if image load fails
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    );
+                }
+                return null;
+            };
 
             return (
                 <div className="h-full flex flex-col">
@@ -676,6 +760,7 @@
                                                     <h5 className="font-bold text-lg text-amber-900 mb-2">{item.name}</h5>
                                                     <p className="text-stone-700 mb-2">{item.mean}</p>
                                                     {item.note && <p className="text-sm text-stone-500 italic bg-stone-50 p-2 rounded">{item.note}</p>}
+                                                    {renderImageSection(item)}
                                                 </div>
                                             ))}
                                         </div>
@@ -688,6 +773,7 @@
                                                 <div key={i} className="bg-white border border-blue-100 p-5 rounded-xl shadow-sm">
                                                     <h5 className="font-bold text-lg text-blue-900 mb-2">{item.name}</h5>
                                                     <p className="text-stone-700">{item.mean}</p>
+                                                    {renderImageSection(item)}
                                                 </div>
                                             ))}
                                         </div>
@@ -704,6 +790,7 @@
                                                     <div className="bg-stone-50 p-3 rounded text-sm text-stone-600 leading-relaxed">
                                                         <span className="font-bold block mb-1">典故：</span>{item.story}
                                                     </div>
+                                                    {renderImageSection(item)}
                                                 </div>
                                             ))}
                                         </div>
@@ -722,6 +809,7 @@
                                                 <div key={i} className="bg-green-50/50 p-5 rounded-xl border border-green-100">
                                                     <h5 className="font-bold text-green-900 text-lg mb-1">{item.title} <span className="text-sm font-normal text-stone-500">({item.source})</span></h5>
                                                     <p className="text-stone-700 leading-relaxed">{item.content}</p>
+                                                    {renderImageSection(item)}
                                                 </div>
                                             ))}
                                         </div>
@@ -734,6 +822,7 @@
                                                 <div key={i} className="bg-white border border-stone-200 p-5 rounded-xl shadow-sm">
                                                     <h5 className="font-bold text-stone-900 mb-2">{item.title}</h5>
                                                     <p className="text-stone-600 text-sm leading-relaxed">{item.content}</p>
+                                                    {renderImageSection(item)}
                                                 </div>
                                             ))}
                                         </div>
@@ -763,6 +852,9 @@
                                                     <span className="inline-block px-3 py-1 bg-stone-800 text-white text-xs rounded-full mb-3">{part.section}</span>
                                                     <h4 className="text-xl font-bold text-stone-900 mb-2">{part.title}</h4>
                                                     <p className="text-stone-600 leading-relaxed text-lg">{part.content}</p>
+                                                </div>
+                                                <div className="w-full md:w-1/3">
+                                                    {renderImageSection(part)}
                                                 </div>
                                             </div>
                                         ))}
@@ -1000,7 +1092,6 @@
             const [showConfetti, setShowConfetti] = useState(false);
             const [isSubmitting, setIsSubmitting] = useState(false);
             const [showResumeDialog, setShowResumeDialog] = useState(false);
-            const [restartConfirm, setRestartConfirm] = useState(false);
             const scrollRef = useRef(null);
 
             useEffect(() => {
@@ -1047,18 +1138,6 @@
                     setQuestions(saved.questions);
                     setAnswers(saved.answers);
                     setScore(saved.score);
-
-                    // 自動捲動到上一題作答位置或第一題未作答
-                    setTimeout(() => {
-                        const firstUnansweredIndex = saved.questions.findIndex(q => !saved.answers[q.id]);
-                        // 如果都答完了，就捲到最後一題，否則捲到第一題沒答的
-                        const targetIndex = firstUnansweredIndex !== -1 ? firstUnansweredIndex : saved.questions.length - 1;
-                        
-                        const element = document.getElementById(`question-${targetIndex}`);
-                        if (element) {
-                            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        }
-                    }, 100);
                 }
                 setShowResumeDialog(false);
             };
@@ -1133,19 +1212,8 @@
                             <h3 className="text-xl font-bold text-stone-800 mb-2">發現未完成的測驗</h3>
                             <p className="text-stone-500 mb-6">您上次還有未完成的快速測驗進度，是否要繼續？</p>
                             <div className="flex gap-3">
-                                <button 
-                                    onClick={() => { 
-                                        if (!restartConfirm) {
-                                            setRestartConfirm(true);
-                                        } else {
-                                            setShowResumeDialog(false); 
-                                            setRestartConfirm(false);
-                                            startNewQuiz(); 
-                                        }
-                                    }} 
-                                    className={`flex-1 py-3 border-2 ${restartConfirm ? 'border-red-500 text-red-600 bg-red-50' : 'border-stone-200 text-stone-600'} rounded-xl font-bold hover:bg-stone-50 transition flex items-center justify-center`}
-                                >
-                                    {restartConfirm ? <span className="text-sm">確定刪除進度？</span> : "重新開始"}
+                                <button onClick={() => { setShowResumeDialog(false); startNewQuiz(); }} className="flex-1 py-3 border-2 border-stone-200 text-stone-600 rounded-xl font-bold hover:bg-stone-50 transition">
+                                    重新開始
                                 </button>
                                 <button onClick={resumeQuiz} className="flex-1 py-3 bg-amber-500 text-white rounded-xl font-bold hover:bg-amber-600 transition shadow-lg shadow-amber-200">
                                     繼續測驗
@@ -1182,7 +1250,7 @@
                                 const isCorrect = userAnswer === q.answer;
                                 
                                 return (
-                                    <div id={`question-${index}`} key={q.id} className={`bg-white rounded-xl shadow-sm border-l-4 p-5 transition-all ${isAnswered ? (isCorrect ? 'border-emerald-500 bg-emerald-50/30' : 'border-red-500 bg-red-50/30') : 'border-stone-200 hover:border-amber-300'}`}>
+                                    <div key={q.id} className={`bg-white rounded-xl shadow-sm border-l-4 p-5 transition-all ${isAnswered ? (isCorrect ? 'border-emerald-500 bg-emerald-50/30' : 'border-red-500 bg-red-50/30') : 'border-stone-200 hover:border-amber-300'}`}>
                                         <div className="flex justify-between items-start mb-3">
                                             <div className="flex items-center">
                                                 <span className="bg-stone-100 text-stone-500 text-xs font-bold px-2 py-1 rounded mr-2">#{index + 1}</span>
